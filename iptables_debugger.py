@@ -179,7 +179,7 @@ def handle_mark(mark):
 def handle_state(rstate, state):
     if rstate == '*' or state == None:
         return True
-    states = state.get('state').split(',')
+    states = (state.get('state') or state.get('ctstate')).split(',')
     if rstate not in states:
         return False
     return True
@@ -194,7 +194,7 @@ def match_rule(rule, chain, num):
     target = rule.get('target')
     physdev = rule.get('physdev')
     mark = rule.get('mark')
-    state = rule.get('state')
+    state = rule.get('state') or rule.get('conntrack')
 
     if not handle_address(r['src'], src):
         return False
@@ -213,7 +213,7 @@ def match_rule(rule, chain, num):
     if not handle_state(r['state'], state):
         return False
 
-    data_visualize.append({'chain': chain, 'rule': rule, 'target': target, 'num': num})  
+    data_visualize.append({'chain': chain, 'rule': rule, 'target': target, 'num': num, 'state': state})  
 
     return target
 
@@ -252,7 +252,7 @@ def match_rule_in_chain(chain):
                     r['dport'] = target['REDIRECT']['to-ports']
             return target
     
-    data_visualize.append({'chain': chain, 'rule': None, 'target': get_policy(chain), 'num': None})
+    data_visualize.append({'chain': chain, 'rule': None, 'target': get_policy(chain), 'num': None, 'state': None})
 
     return False
 
@@ -282,6 +282,7 @@ def visualize():
         dst = None
         dport = None
         target = data['target']
+        state = data['state']
 
         rule = data.get('rule')
         if rule:
@@ -303,11 +304,15 @@ def visualize():
         row = [chain, prot, in_inf, out_inf, src, sport, dst, dport, target]
         if args.visualize > 1:
             row = [num, pkts] + row
+        if args.visualize > 2:
+            row.append(state)
         table.append(row)
 
     headers = ['chain', 'prot', 'in', 'out', 'src', 'sport', 'dst', 'dport', 'target']
     if args.visualize > 1:
         headers = ['num', 'pkts'] + headers
+    if args.visualize > 2:
+        headers.append('state')
 
     print(tabulate(table, headers, tablefmt='psql'))
 
