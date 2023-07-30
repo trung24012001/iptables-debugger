@@ -17,8 +17,12 @@ parser.add_argument('--dport', default='*',
                         help='destination port, default=*')
 parser.add_argument('-p', '--protocol', default='*',
                         help='protocol, default=*')
-parser.add_argument('-v', '--visualize', action='store_true',
-                        help='enable packet flow visualization')
+parser.add_argument('--state', default='*',
+                        help='state, default=*')
+parser.add_argument('-m', '--mark', default='*',
+                        help='mark, default=*')
+parser.add_argument('-v', '--visualize', action='count', default=0,
+                        help='-vv for more, enable visualization')
 
 args = parser.parse_args()
 #if 'protocol' not in vars(args) and ('dport' in vars(args) or 'sport' in vars(args)):
@@ -34,7 +38,7 @@ for chain in filters:
 #        for rule in filters[chain]:
 #            tables[chain].append(rule)
 
-r = {'src': args.src, 'sport': args.sport, 'dst': args.dst, 'dport': args.dport, 'prot': args.protocol, 'in_inf': None, 'out_inf': None}
+r = {'src': args.src, 'sport': args.sport, 'dst': args.dst, 'dport': args.dport, 'prot': args.protocol, 'in_inf': None, 'out_inf': None, 'state': args.state}
 data_visualize = []
 
 def get_addresses():
@@ -70,7 +74,7 @@ def set_chains():
     elif r['dst'] in addrs:
         chains = ['INPUT']
     else:
-        chains = ['FORWARD', 'OUTPUT', 'POSTROUTING']
+        chains = ['FORWARD', 'POSTROUTING']
     return chains
 
 def parse_addr(addr):
@@ -80,7 +84,7 @@ def parse_addr(addr):
         addr += '/32'
     if addr.find('!') != -1:
         addr = addr.split('!')[1]
-        return list(ipaddress.ip_network(unicode('0.0.0.0/0')).address_exclude(ipaddress.ip_network(unicode(addr))))
+        return list(ipaddress.ip_network(u'0.0.0.0/0').address_exclude(ipaddress.ip_network(unicode(addr))))
     return ipaddress.ip_network(unicode(addr))
 
 def parse_port(port):
@@ -96,8 +100,9 @@ def parse_inf(inf):
     if inf == None:
         inf = '*'
     elif inf.find('!') != -1:
+        tmp = inf.split('!')[1]
         inf = interfaces()
-        inf.remove(inf.split('!')[1])
+        inf.remove(tmp)
     else:
         inf = [inf]
     return inf
@@ -165,7 +170,20 @@ def handle_physdev(rinf_in, rinf_out, physdev):
                 is_match = False
     return is_match
         
-        
+def handle_mark(mark):
+    # I will handle this later
+    if mark == None:
+        return True
+    return False
+
+def handle_state(rstate, state):
+    if rstate == '*' or state == None:
+        return True
+    states = state.get('state').split(',')
+    if rstate not in states:
+        return False
+    return True
+
 
 def match_rule(rule, chain, num):
     src = parse_addr(rule.get('src'))
@@ -175,6 +193,8 @@ def match_rule(rule, chain, num):
     prot = rule.get('protocol')
     target = rule.get('target')
     physdev = rule.get('physdev')
+    mark = rule.get('mark')
+    state = rule.get('state')
 
     if not handle_address(r['src'], src):
         return False
@@ -188,6 +208,10 @@ def match_rule(rule, chain, num):
         return False
     if not handle_physdev(r['in_inf'], r['out_inf'], physdev):
         return False
+    if not handle_mark(mark):
+        return False
+    if not handle_state(r['state'], state):
+        return False
 
     data_visualize.append({'chain': chain, 'rule': rule, 'target': target, 'num': num})  
 
@@ -198,7 +222,7 @@ def get_policy(chain):
     if chain in ['PREROUTING', 'POSTROUTING']:
         return 'ACCEPT'
     elif chain in ['INPUT', 'FORWARD', 'OUTPUT']:
-        output = subprocess.check_output(['iptables', '-S', chain])
+        output = subprocess.check_output(['iptables', '-S', chain]).decode('utf-8')
         return output.split('\n')[0].split(' ')[2]
     return ''
 
@@ -224,6 +248,8 @@ def match_rule_in_chain(chain):
                         r['src'] = to_src[0]
                     if len(to_src) == 2:
                         r['sport'] = to_src[1]
+                elif target.get('REDIRECT'):
+                    r['dport'] = target['REDIRECT']['to-ports']
             return target
     
     data_visualize.append({'chain': chain, 'rule': None, 'target': get_policy(chain), 'num': None})
@@ -241,34 +267,53 @@ def processing(chains):
             return True
     return False
 
-def format_attr(attr):
-    if attr == None:
-        return '*'
-    return attr
 
 def visualize():
-    headers = ['num', 'pkts', 'chain', 'prot', 'in', 'out', 'src', 'sport', 'dst', 'dport', 'target']
     table = []
     for data in data_visualize:
+        num = data['num'] or 'default'
+        pkts = None
+        chain = data['chain']
+        prot = None
+        in_inf = None
+        out_inf = None
+        src = None
+        sport = None
+        dst = None
+        dport = None
+        target = data['target']
+
         rule = data.get('rule')
         if rule:
-            prot = rule.get('protocol')
-            sport = None
-            dport = None
-            if prot:
+            prot = rule.get('protocol') or '*'
+            sport = '*'
+            dport = '*'
+            if prot != '*':
                 port = rule.get(prot)
-                sport = port.get('sport')
-                dport = port.get('dport')
+                if port:
+                    sport = port.get('sport') or '*'
+                    dport = port.get('dport') or '*'
+            
+            pkts = rule['counters'][0]
+            in_inf = rule.get('in-interface') or '*'
+            out_inf = rule.get('out-interface') or '*'
+            src = rule.get('src') or '0.0.0.0/0'
+            dst = rule.get('dst') or '0.0.0.0/0'
 
-            row = [data['num'], rule['counters'][0], data['chain'], format_attr(prot), format_attr(rule.get('in-interface')), format_attr(rule.get('out-interface')), rule.get('src') or '0.0.0.0/0', format_attr(sport), rule.get('dst') or '0.0.0.0/0', format_attr(dport), data['target']]
-        else:
-            row = ['', '', data['chain'],'', '', '', '', '', '','', data['target']]
+        row = [chain, prot, in_inf, out_inf, src, sport, dst, dport, target]
+        if args.visualize > 1:
+            row = [num, pkts] + row
         table.append(row)
-    print(tabulate(table, headers, tablefmt='pretty'))
+
+    headers = ['chain', 'prot', 'in', 'out', 'src', 'sport', 'dst', 'dport', 'target']
+    if args.visualize > 1:
+        headers = ['num', 'pkts'] + headers
+
+    print(tabulate(table, headers, tablefmt='psql'))
 
 
 def main():               
     processing(chains)
-    if args.visualize:
+    if args.visualize > 0:
         visualize()
 main()
