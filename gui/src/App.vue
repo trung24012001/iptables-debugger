@@ -1,9 +1,12 @@
 <script setup>
-// import HelloWorld from "@/components/HelloWorld.vue";
+import IptablesData from "./components/IptablesData.vue";
+import IptablesTable from "./components/IptablesTable.vue";
 import IptablesVisualize from "./components/IptablesVisualize.vue";
+import PacketForm from "./components/PacketForm.vue";
 
 const data = [
   {
+    table: "nat",
     state: null,
     num: 1,
     rule: {
@@ -16,6 +19,7 @@ const data = [
     target: { DNAT: { "to-destination": "10.10.1.150:22" } },
   },
   {
+    table: "filter",
     state: null,
     num: 1,
     rule: {
@@ -26,6 +30,7 @@ const data = [
     target: "neutron-filter-top",
   },
   {
+    table: "filter",
     state: null,
     num: 1,
     rule: {
@@ -36,6 +41,7 @@ const data = [
     target: "neutron-linuxbri-local",
   },
   {
+    table: "filter",
     state: null,
     num: null,
     rule: null,
@@ -43,6 +49,7 @@ const data = [
     target: "",
   },
   {
+    table: "filter",
     state: null,
     num: null,
     rule: null,
@@ -50,6 +57,7 @@ const data = [
     target: "",
   },
   {
+    table: "filter",
     state: null,
     num: 2,
     rule: {
@@ -60,14 +68,23 @@ const data = [
     target: "neutron-linuxbri-FORWARD",
   },
   {
+    table: "filter",
     state: null,
     num: null,
     rule: null,
     chain: "neutron-linuxbri-FORWARD",
     target: "",
   },
-  { state: null, num: null, rule: null, chain: "FORWARD", target: "ACCEPT" },
   {
+    table: "filter",
+    state: null,
+    num: null,
+    rule: null,
+    chain: "FORWARD",
+    target: "ACCEPT",
+  },
+  {
+    table: "nat",
     state: null,
     num: 3,
     rule: {
@@ -84,29 +101,19 @@ const data = [
 </script>
 
 <template>
-  <IptablesVisualize :data="data" />
-  <!-- <div>
-    <a href="https://vitejs.dev" target="_blank">
-      <img src="/vite.svg" class="logo" alt="Vite logo" />
-    </a>
-    <a href="https://vuejs.org/" target="_blank">
-      <img src="./assets/vue.svg" class="logo vue" alt="Vue logo" />
-    </a>
+  <div class="app">
+    <a-typography-title>IPTables Debugger</a-typography-title>
+    <a-space direction="vertical" size="large">
+      <PacketForm />
+      <IptablesData />
+      <IptablesVisualize :data="data" />
+      <IptablesTable :data="data" />
+    </a-space>
   </div>
-  <HelloWorld msg="Vite + Vue" /> -->
 </template>
 
 <style scoped>
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.vue:hover {
-  filter: drop-shadow(0 0 2em #42b883aa);
+.app {
+  margin: 30px 60px;
 }
 </style>
