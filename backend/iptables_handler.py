@@ -7,24 +7,38 @@ from netifaces import ifaddresses, interfaces, AF_INET
 from nsenter import Namespace
 
 
-flows = {}
-
 
 class IptablesHandler:
-    def __init__(self):
+    def __init__(self, filename):
         self.ns = str(uuid.uuid4())[:8]
+
+        self.data_visualize = []
+        self.chains = []
         self.tables = {}
+
+        self.addrInf = self.get_addrinf()
+        
         self.init_env()
+        self.init_iptables(filename)
+        self.init_chain()
+    
+    def init_chain(self):
+        self.chains = ["PREROUTING", "ROUTING"]
+        if self.addrInf.get(r["dst"]):
+            self.chains = ["OUTPUT", "POSTROUTING"]
+            r["out_inf"] = self.addrInf[r["src"]]
+        elif self.addrInf.get(r["dst"]):
+            r["in_inf"] = self.addrInf[r["dst"]]
 
     def init_env(self):
         # netns.create(self.ns)
         subprocess.run(["ip", "netns", "add", self.ns], check=True)
 
-    def clear_env(self):
+    def delete_env(self):
         # netns.remove(self.ns)
         subprocess.run(["ip", "netns", "delete", self.ns], check=True)
 
-    def import_ruleset(self, filename):
+    def init_iptables(self, filename):
         subprocess.run(
             ["ip", "netns", "exec", self.ns, "iptables-restore", "<", filename],
             check=True,
@@ -46,31 +60,41 @@ class IptablesHandler:
                 if filters.get(chain):
                     self.tables[chain] += filters.get(chain)
 
-    def get_addresses(self):
-        addresses = []
+    def handle_packet(self, packet):
+        self.r = {
+            "src": packet.src,
+            "sport": packet.sport,
+            "dst": packet.dst,
+            "dport": packet.dport,
+            "prot": packet.protocol,
+            "in_inf": None,
+            "out_inf": None,
+            "state": packet.state,
+        }
+
+    def get_addrinf(self):
         addrInf = {}
         for ifaceName in interfaces():
             for i in ifaddresses(ifaceName).setdefault(AF_INET, [{"addr": None}]):
                 addr = i["addr"]
                 if addr:
-                    addresses.append(addr)
                     addrInf[addr] = ifaceName
-        return addresses, addrInf
+        return addrInf
 
     def get_bridges(inf):
         path = "/sys/class/net/{}/brif/".format(inf)
         return os.listdir(path)
 
-    def set_chain_flow(self):
-        if r["src"] in addrs:
+    def set_chains(self):
+        if self.addrInf.get(r["src"]):
             chains = ["OUTPUT", "POSTROUTING"]
-        elif r["dst"] in addrs:
+        elif self.addrInf.get(r["dst"]):
             chains = ["INPUT"]
         else:
             chains = ["FORWARD", "POSTROUTING"]
         return chains
 
-    def parse_addr(addr):
+    def parse_addr(self, addr):
         if addr == None:
             addr = "0.0.0.0/0"
         elif addr.find("/") == -1:
@@ -84,7 +108,7 @@ class IptablesHandler:
             )
         return ipaddress.ip_network(addr)
 
-    def parse_port(port):
+    def parse_port(self, port):
         if port == None:
             port = "*"
         elif port.find(":") != -1:
@@ -93,7 +117,7 @@ class IptablesHandler:
             port = [int(port)]
         return port
 
-    def parse_inf(inf):
+    def parse_inf(self, inf):
         if inf == None:
             inf = "*"
         elif inf.find("!") != -1:
@@ -104,7 +128,7 @@ class IptablesHandler:
             inf = [inf]
         return inf
 
-    def handle_address(rsrc, src):
+    def handle_address(self, rsrc, src):
         if rsrc == "*":
             return True
         rsrc = ipaddress.ip_address(rsrc)
@@ -119,15 +143,15 @@ class IptablesHandler:
             return False
         return True
 
-    def handle_prot(rprot, rsport, rdport, prot, rule):
+    def handle_prot(self, rprot, rsport, rdport, prot, rule):
         if rprot == "*" or prot == None:
             return True
         if rprot != prot:
             return False
         port = rule.get(r["prot"])
         if port:
-            sport = parse_port(port.get("sport"))
-            dport = parse_port(port.get("dport"))
+            sport = self.parse_port(port.get("sport"))
+            dport = self.parse_port(port.get("dport"))
             if rsport != "*" and sport != "*":
                 if int(rsport) not in sport:
                     return False
@@ -136,14 +160,14 @@ class IptablesHandler:
                     return False
         return True
 
-    def handle_inf(rinf, inf):
+    def handle_inf(self, rinf, inf):
         if inf == "*":
             return True
         if rinf not in inf:
             return False
         return True
 
-    def handle_physdev(rinf_in, rinf_out, physdev):
+    def handle_physdev(self, rinf_in, rinf_out, physdev):
         if physdev == None:
             return True
         phys_in = physdev.get("physdev-in")
@@ -153,7 +177,7 @@ class IptablesHandler:
             if rinf_in == None:
                 return False
             else:
-                if phys_in in get_bridges(rinf_in):
+                if phys_in in self.get_bridges(rinf_in):
                     is_match = True
                 else:
                     is_match = False
@@ -161,7 +185,7 @@ class IptablesHandler:
             if rinf_out == None:
                 return False
             else:
-                if phys_out in get_bridges(rinf_out):
+                if phys_out in self.get_bridges(rinf_out):
                     is_match = True
                 else:
                     is_match = False
@@ -209,7 +233,7 @@ class IptablesHandler:
         if not self.handle_state(r["state"], state):
             return False
 
-        data_visualize.append(
+        self.data_visualize.append(
             {"chain": chain, "rule": rule, "target": target, "num": num, "state": state}
         )
 
@@ -227,10 +251,10 @@ class IptablesHandler:
         return ""
 
     def match_rule_in_chain(self, chain):
-        for num, rule in enumerate(tables[chain]):
+        for num, rule in enumerate(self.tables[chain]):
             target = self.match_rule(rule, chain, num + 1)
             if target:
-                if tables.get(str(target)) is not None:
+                if self.tables.get(str(target)) is not None:
                     target = self.match_rule_in_chain(target)
                     if target == "RETURN" or target == False:
                         continue
@@ -252,11 +276,11 @@ class IptablesHandler:
                         r["dport"] = target["REDIRECT"]["to-ports"]
                 return target
 
-        data_visualize.append(
+        self.data_visualize.append(
             {
                 "chain": chain,
                 "rule": None,
-                "target": get_policy(chain),
+                "target": self.get_policy(chain),
                 "num": None,
                 "state": None,
             }
@@ -264,107 +288,17 @@ class IptablesHandler:
 
         return False
 
-    def processing(chains):
+    def processing(self, chains):
         for chain in chains:
             if chain == "ROUTING":
-                chains = set_chains()
-                return processing(chains)
-            target = match_rule_in_chain(chain)
+                chains = self.set_chains()
+                return self.processing(chains)
+            target = self.match_rule_in_chain(chain)
             if target:
                 return True
         return False
 
-
-r = {
-    "src": args.src,
-    "sport": args.sport,
-    "dst": args.dst,
-    "dport": args.dport,
-    "prot": args.protocol,
-    "in_inf": None,
-    "out_inf": None,
-    "state": args.state,
-}
-data_visualize = []
-
-
-def get_addresses():
-    addresses = []
-    addrInf = {}
-    for ifaceName in interfaces():
-        for i in ifaddresses(ifaceName).setdefault(AF_INET, [{"addr": None}]):
-            addr = i["addr"]
-            if addr:
-                addresses.append(addr)
-                addrInf[addr] = ifaceName
-    return addresses, addrInf
-
-
-addrs, addrInf = get_addresses()
-
-if r["src"] in addrs:
-    chains = ["OUTPUT", "POSTROUTING"]
-    r["out_inf"] = addrInf[r["src"]]
-elif r["dst"] in addrs:
-    chains = ["PREROUTING", "ROUTING"]
-    r["in_inf"] = addrInf[r["dst"]]
-else:
-    print("Error: src and dst not valid")
-    exit(1)
-
-
-def visualize():
-    table = []
-    for data in data_visualize:
-        num = data["num"] or "default"
-        pkts = None
-        chain = data["chain"]
-        prot = None
-        in_inf = None
-        out_inf = None
-        src = None
-        sport = None
-        dst = None
-        dport = None
-        target = data["target"]
-        state = data["state"]
-
-        rule = data.get("rule")
-        if rule:
-            prot = rule.get("protocol") or "*"
-            sport = "*"
-            dport = "*"
-            if prot != "*":
-                port = rule.get(prot)
-                if port:
-                    sport = port.get("sport") or "*"
-                    dport = port.get("dport") or "*"
-
-            pkts = rule["counters"][0]
-            in_inf = rule.get("in-interface") or "*"
-            out_inf = rule.get("out-interface") or "*"
-            src = rule.get("src") or "0.0.0.0/0"
-            dst = rule.get("dst") or "0.0.0.0/0"
-
-        row = [chain, prot, in_inf, out_inf, src, sport, dst, dport, target]
-        if args.visualize > 1:
-            row = [num, pkts] + row
-        if args.visualize > 2:
-            row.append(state)
-        table.append(row)
-
-    headers = ["chain", "prot", "in", "out", "src", "sport", "dst", "dport", "target"]
-    if args.visualize > 1:
-        headers = ["num", "pkts"] + headers
-    if args.visualize > 2:
-        headers.append("state")
-    print(tabulate(table, headers, tablefmt="psql"))
-
-
-def main():
-    processing(chains)
-    if args.visualize > 0:
-        visualize()
-
-
-main()
+    def run(self):
+        self.processing(self.chains)
+        return self.data_visualize
+        
