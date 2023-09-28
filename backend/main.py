@@ -1,6 +1,8 @@
 import os
 import platform
 from iptables_handler import IptablesHandler
+from iptables_namespace import IptablesNS
+from nsenter import Namespace
 
 if platform.system() != "Linux":
     exit("Only supported on Linux.")
@@ -8,7 +10,7 @@ if platform.system() != "Linux":
 if os.geteuid() != 0:
     exit("You need to have root privileges to run this script.")
 
-iptables = IptablesHandler()
+iptablesns = IptablesNS()
 
 
 if __name__ == "__main__":
@@ -18,12 +20,19 @@ if __name__ == "__main__":
         "prot": "icmp",
         "sport": None,
         "dport": None,
-        "in_inf": None,
-        "out_inf": None,
+        "smac": None,
+        "dmac": None,
         "state": "NEW",
+        "inif": None,
+        "outif": None,
     }
-    filename = "ruleset-mmt67.iptables"
-    ns = iptables.setup(filename)
-    print(ns)
-    rules = iptables.handle_packet(ns, packet)
-    print(rules)
+    #filename = "ruleset-mmt67.iptables"
+    #ns = iptablesns.setup(filename)
+    ns = "f376b19b"
+    #print(ns)
+    with Namespace(f"/var/run/netns/{ns}", "net"):
+        iptables = IptablesHandler()
+        iptables.import_packet(packet)
+        print(iptables.chains)
+        results = iptables.import_packet(packet)
+        print(results)
