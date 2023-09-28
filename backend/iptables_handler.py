@@ -7,58 +7,63 @@ from netifaces import ifaddresses, interfaces, AF_INET
 from nsenter import Namespace
 
 
-
 class IptablesHandler:
-    def __init__(self, filename):
-        self.ns = str(uuid.uuid4())[:8]
+    def __init__(self):
+        pass
+        # self.ns = str(uuid.uuid4())[:8]
 
-        self.data_visualize = []
-        self.chains = []
-        self.tables = {}
+        # self.data_visualize = []
+        # self.chains = []
+        # self.tables = {}
 
-        self.addrInf = self.get_addrinf()
-        
-        self.init_env()
-        self.init_iptables(filename)
-        self.init_chain()
-    
-    def init_chain(self):
-        self.chains = ["PREROUTING", "ROUTING"]
-        if self.addrInf.get(r["dst"]):
-            self.chains = ["OUTPUT", "POSTROUTING"]
-            r["out_inf"] = self.addrInf[r["src"]]
-        elif self.addrInf.get(r["dst"]):
-            r["in_inf"] = self.addrInf[r["dst"]]
+        # self.addrInf = self.get_addrinf()
 
-    def init_env(self):
-        # netns.create(self.ns)
-        subprocess.run(["ip", "netns", "add", self.ns], check=True)
+        # self.init_env()
+        # self.init_iptables(filename)
+        # self.init_chain()
 
-    def delete_env(self):
-        # netns.remove(self.ns)
-        subprocess.run(["ip", "netns", "delete", self.ns], check=True)
+    def setup(self, filename):
+        ns = str(uuid.uuid4())[:8]
+        self.add_ns(ns)
+        self.init_iptables(ns)
 
-    def init_iptables(self, filename):
+        return ns
+
+    # def init_chain(self):
+    #     self.chains = ["PREROUTING", "ROUTING"]
+    #     if self.addrInf.get(r["dst"]):
+    #         self.chains = ["OUTPUT", "POSTROUTING"]
+    #         r["out_inf"] = self.addrInf[r["src"]]
+    #     elif self.addrInf.get(r["dst"]):
+    #         r["in_inf"] = self.addrInf[r["dst"]]
+
+    def add_ns(self, ns):
+        subprocess.run(["ip", "netns", "add", ns], check=True)
+
+    def del_ns(self, ns):
+        subprocess.run(["ip", "netns", "delete", ns], check=True)
+
+    def init_iptables(self, filename, ns):
         subprocess.run(
-            ["ip", "netns", "exec", self.ns, "iptables-restore", "<", filename],
+            ["ip", "netns", "exec", ns, "iptables-restore", "<", filename],
             check=True,
         )
-        with Namespace(f"/var/run/netns/{self.ns}", "net"):
-            raws = iptc.easy.dump_table("raw")
-            mangles = iptc.easy.dump_table("mangles")
-            nats = iptc.easy.dump_table("nat")
-            filters = iptc.easy.dump_table("filter")
-            chains = ["PREROUTING", "INPUT", "FORWARD", "OUTPUT", "POSTROUTING"]
-            for chain in chains:
-                self.tables[chain] = []
-                if raws.get(chain):
-                    self.tables[chain] += raws.get(chain)
-                if mangles.get(chain):
-                    self.tables[chain] += mangles.get(chain)
-                if nats.get(chain):
-                    self.tables[chain] += nats.get(chain)
-                if filters.get(chain):
-                    self.tables[chain] += filters.get(chain)
+        # with Namespace(f"/var/run/netns/{self.ns}", "net"):
+        #     raws = iptc.easy.dump_table("raw")
+        #     mangles = iptc.easy.dump_table("mangles")
+        #     nats = iptc.easy.dump_table("nat")
+        #     filters = iptc.easy.dump_table("filter")
+        #     chains = ["PREROUTING", "INPUT", "FORWARD", "OUTPUT", "POSTROUTING"]
+        #     for chain in chains:
+        #         self.tables[chain] = []
+        #         if raws.get(chain):
+        #             self.tables[chain] += raws.get(chain)
+        #         if mangles.get(chain):
+        #             self.tables[chain] += mangles.get(chain)
+        #         if nats.get(chain):
+        #             self.tables[chain] += nats.get(chain)
+        #         if filters.get(chain):
+        #             self.tables[chain] += filters.get(chain)
 
     def handle_packet(self, packet):
         self.r = {
@@ -301,4 +306,3 @@ class IptablesHandler:
     def run(self):
         self.processing(self.chains)
         return self.data_visualize
-        
