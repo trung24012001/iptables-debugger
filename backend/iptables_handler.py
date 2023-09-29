@@ -10,20 +10,19 @@ class IptablesHandler:
     def __init__(self):
         self.addrInf = self.get_addrinf()
         self.tables = self.init_tables()
-        self.chains = []
         self.packet = {}
         self.results = []
 
     def import_packet(self, packet):
         self.packet = packet
-        self.chains = self.init_chains()
-        self.processing(self.chains)
+        chains = self.init_chains()
+        self.processing(chains)
         return self.results
 
     def init_chains(self):
-        chains = ["PREROUTING", "ROUTING"]
+        chains = ["RAW_PREROUTING", "MANGLE_PREROUTING", "NAT_PREROUTING", "ROUTING"]
         if self.addrInf.get(self.packet["dst"]):
-            chains = ["OUTPUT", "POSTROUTING"]
+            chains = ["RAW_OUTPUT", "MANGLE_OUTPUT", "NAT_OUTPUT", "FILTER_OUTPUT", "MANGLE_POSTROUTING", "NAT_POSTROUTING"]
             self.packet["outif"] = self.addrInf[self.packet["src"]]
         elif self.addrInf.get(self.packet["dst"]):
             self.packet["inif"] = self.addrInf[self.packet["dst"]]
@@ -34,18 +33,16 @@ class IptablesHandler:
         mangles = iptc.easy.dump_table("mangle")
         nats = iptc.easy.dump_table("nat")
         filters = iptc.easy.dump_table("filter")
-        chains = ["PREROUTING", "INPUT", "FORWARD", "OUTPUT", "POSTROUTING"]
         tables = {}
-        for chain in chains:
-            tables[chain] = []
-            if raws.get(chain):
-                tables[chain] += raws.get(chain)
-            if mangles.get(chain):
-                tables[chain] += mangles.get(chain)
-            if nats.get(chain):
-                tables[chain] += nats.get(chain)
-            if filters.get(chain):
-                tables[chain] += filters.get(chain)
+        for chain in raws:
+            tables[f"RAW_{chain}"] = raws[chain]
+        for chain in mangles:
+            tables[f"MANGLE_{chain}"] = mangles[chain]
+        for chain in nats:
+            tables[f"NAT_{chain}"] = nats[chain]
+        for chain in filters:
+            tables[f"FILTER_{chain}"] = filters[chain]
+
         return tables
 
 
@@ -64,11 +61,11 @@ class IptablesHandler:
 
     def set_chains(self):
         if self.addrInf.get(self.packet["src"]):
-            chains = ["OUTPUT", "POSTROUTING"]
+            chains = ["RAW_OUTPUT", "MANGLE_OUTPUT", "NAT_OUTPUT", "FILTER_OUTPUT", "MANGLE_POSTROUTING", "NAT_POSTROUTING"]
         elif self.addrInf.get(self.packet["dst"]):
-            chains = ["INPUT"]
+            chains = ["MANGLE_INPUT", "NAT_INPUT", "FILTER_INPUT"]
         else:
-            chains = ["FORWARD", "POSTROUTING"]
+            chains = ["MANGLE_FORWARD", "FILTER_FORWARD", "MANGLE_POSTROUTING", "NAT_POSTROUTING"]
         return chains
 
     def parse_addr(self, addr):
@@ -105,35 +102,35 @@ class IptablesHandler:
             inf = [inf]
         return inf
 
-    def handle_address(self, rsrc, src):
-        if rsrc == "*":
+    def handle_address(self, paddr, addr):
+        if paddr == "*":
             return True
-        rsrc = ipaddress.ip_address(rsrc)
-        if isinstance(src, list):
+        paddr = ipaddress.ip_address(paddr)
+        if isinstance(addr, list):
             is_match = False
-            for s in src:
-                if rsrc in s:
+            for item in addr:
+                if paddr in item:
                     is_match = True
             if not is_match:
                 return False
-        elif rsrc not in src:
+        elif paddr not in addr:
             return False
         return True
 
-    def handle_prot(self, rprot, rsport, rdport, prot, rule):
-        if rprot == "*" or prot == None:
+    def handle_prot(self, pprot, psport, pdport, prot, rule):
+        if pprot == "*" or prot == None:
             return True
-        if rprot != prot:
+        if pprot != prot:
             return False
         port = rule.get(self.packet["prot"])
         if port:
             sport = self.parse_port(port.get("sport"))
             dport = self.parse_port(port.get("dport"))
-            if rsport != "*" and sport != "*":
-                if int(rsport) not in sport:
+            if psport != "*" and sport != "*":
+                if int(psport) not in sport:
                     return False
-            if rdport != "*" and dport != "*":
-                if int(rdport) not in dport:
+            if pdport != "*" and dport != "*":
+                if int(pdport) not in dport:
                     return False
         return True
 
@@ -151,7 +148,7 @@ class IptablesHandler:
         phys_out = physdev.get("physdev-out")
         is_match = False
         if phys_in:
-            if pifin == None:
+            if pinif == None:
                 return False
             else:
                 if phys_in in self.get_bridges(pinif):
@@ -222,11 +219,12 @@ class IptablesHandler:
 
         return target
 
-    def get_policy(chain):
-        if chain in ["PREROUTING", "POSTROUTING"]:
+    def get_policy(self, chain):
+        df_chain = chain.split("_")[1]
+        if df_chain in ["PREROUTING", "POSTROUTING"]:
             return "ACCEPT"
-        elif chain in ["INPUT", "FORWARD", "OUTPUT"]:
-            output = subprocess.check_output(["iptables", "-S", chain])
+        elif df_chain in ["INPUT", "FORWARD", "OUTPUT"]:
+            output = subprocess.check_output(["iptables", "-S", df_chain])
             output = output.decode("utf-8")
             return output.split("\n")[0].split(" ")[2]
         return ""
@@ -235,8 +233,9 @@ class IptablesHandler:
         for num, rule in enumerate(self.tables[chain]):
             target = self.match_rule(rule, chain, num + 1)
             if target:
-                if self.tables.get(str(target)) is not None:
-                    target = self.match_rule_in_chain(target)
+                ud_chain = f"{chain.split('_')[0]}_{target}"
+                if self.tables.get(ud_chain) != None:
+                    target = self.match_rule_in_chain(ud_chain)
                     if target == "RETURN" or target == False:
                         continue
                 elif isinstance(target, dict):
@@ -272,8 +271,8 @@ class IptablesHandler:
     def processing(self, chains):
         for chain in chains:
             if chain == "ROUTING":
-                chains = self.set_chains()
-                return self.processing(chains)
+                new_chains = self.set_chains()
+                return self.processing(new_chains)
             target = self.match_rule_in_chain(chain)
             if target:
                 return True

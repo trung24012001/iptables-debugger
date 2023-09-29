@@ -22,7 +22,7 @@ if __name__ == "__main__":
         "dport": None,
         "smac": None,
         "dmac": None,
-        "state": "NEW",
+        "state": "ESTABLISHED",
         "inif": None,
         "outif": None,
     }
@@ -32,7 +32,5 @@ if __name__ == "__main__":
     #print(ns)
     with Namespace(f"/var/run/netns/{ns}", "net"):
         iptables = IptablesHandler()
-        iptables.import_packet(packet)
-        print(iptables.chains)
         results = iptables.import_packet(packet)
         print(results)
