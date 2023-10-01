@@ -1,31 +1,30 @@
 import os
 import uuid
 import subprocess
-
+import pathlib
 
 class IptablesNS:
     def __init__(self):
-        pass
+        self.filedir = pathlib.Path(__file__).parent.resolve() / "ruleset"
 
-    def setup(self, filename):
-        ns = str(uuid.uuid4())[:8]
-        self.add_ns(ns)
+    def setup(self, filename, ns):
+        self.addns(ns)
         try:
             self.init_iptables(filename, ns)
         except:
-            self.del_ns(ns)
+            self.delns(ns)
             raise Exception("Fail to init iptables")
 
         return ns
 
-    def add_ns(self, ns):
+    def addns(self, ns):
         subprocess.check_call(["ip", "netns", "add", ns])
 
-    def del_ns(self, ns):
+    def delns(self, ns):
         subprocess.check_call(["ip", "netns", "delete", ns])
     
-    def find_ns(self, ns):
+    def findns(self, ns):
         return ns in os.listdir("/var/run/netns/")
 
     def init_iptables(self, filename, ns):
-        subprocess.check_call(f"ip netns exec {ns} iptables-restore < {os.path.dirname(os.path.abspath(__file__))}/{filename}", shell=True)
+        subprocess.check_call(f"ip netns exec {ns} iptables-restore < {self.filedir}/{filename}", shell=True)

@@ -1,36 +1,29 @@
-import os
-import platform
-from iptables_handler import IptablesHandler
-from iptables_namespace import IptablesNS
-from nsenter import Namespace
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from config import settings
+from api import router
 
-if platform.system() != "Linux":
-    exit("Only supported on Linux.")
 
-if os.geteuid() != 0:
-    exit("You need to have root privileges to run this script.")
+app = FastAPI(title="FIREWALL DEBUGGER API")
+app.add_middleware(
+    CORSMiddleware,
+    allow_credentials=True,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-iptablesns = IptablesNS()
+
+app.include_router(router, prefix="/api")
 
 
 if __name__ == "__main__":
-    packet = {
-        "src": "1.2.3.4",
-        "dst": "2.3.4.5",
-        "prot": "icmp",
-        "sport": None,
-        "dport": None,
-        "smac": None,
-        "dmac": None,
-        "state": "ESTABLISHED",
-        "inif": None,
-        "outif": None,
-    }
-    #filename = "ruleset-mmt67.iptables"
-    #ns = iptablesns.setup(filename)
-    ns = "f376b19b"
-    #print(ns)
-    with Namespace(f"/var/run/netns/{ns}", "net"):
-        iptables = IptablesHandler()
-        results = iptables.import_packet(packet)
-        print(results)
+    import uvicorn
+
+    uvicorn.run(
+        "main:app",
+        host=settings.API_HOST,
+        port=settings.API_PORT,
+        log_level="debug",
+        reload=True,
+    )

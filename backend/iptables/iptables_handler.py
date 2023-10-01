@@ -21,11 +21,11 @@ class IptablesHandler:
 
     def init_chains(self):
         chains = ["RAW_PREROUTING", "MANGLE_PREROUTING", "NAT_PREROUTING", "ROUTING"]
-        if self.addrInf.get(self.packet["dst"]):
+        if self.addrInf.get(self.packet["saddr"]):
             chains = ["RAW_OUTPUT", "MANGLE_OUTPUT", "NAT_OUTPUT", "FILTER_OUTPUT", "MANGLE_POSTROUTING", "NAT_POSTROUTING"]
-            self.packet["outif"] = self.addrInf[self.packet["src"]]
-        elif self.addrInf.get(self.packet["dst"]):
-            self.packet["inif"] = self.addrInf[self.packet["dst"]]
+            self.packet["outinf"] = self.addrInf[self.packet["saddr"]]
+        elif self.addrInf.get(self.packet["daddr"]):
+            self.packet["ininf"] = self.addrInf[self.packet["daddr"]]
         return chains
 
     def init_tables(self):
@@ -60,12 +60,11 @@ class IptablesHandler:
         return os.listdir(path)
 
     def set_chains(self):
-        if self.addrInf.get(self.packet["src"]):
+        chains = ["MANGLE_FORWARD", "FILTER_FORWARD", "MANGLE_POSTROUTING", "NAT_POSTROUTING"]
+        if self.addrInf.get(self.packet["saddr"]):
             chains = ["RAW_OUTPUT", "MANGLE_OUTPUT", "NAT_OUTPUT", "FILTER_OUTPUT", "MANGLE_POSTROUTING", "NAT_POSTROUTING"]
-        elif self.addrInf.get(self.packet["dst"]):
+        elif self.addrInf.get(self.packet["daddr"]):
             chains = ["MANGLE_INPUT", "NAT_INPUT", "FILTER_INPUT"]
-        else:
-            chains = ["MANGLE_FORWARD", "FILTER_FORWARD", "MANGLE_POSTROUTING", "NAT_POSTROUTING"]
         return chains
 
     def parse_addr(self, addr):
@@ -102,64 +101,64 @@ class IptablesHandler:
             inf = [inf]
         return inf
 
-    def handle_address(self, paddr, addr):
-        if paddr == "*":
+    def handle_address(self, p_addr, addr):
+        if p_addr == "*":
             return True
-        paddr = ipaddress.ip_address(paddr)
+        p_addr = ipaddress.ip_address(p_addr)
         if isinstance(addr, list):
             is_match = False
             for item in addr:
-                if paddr in item:
+                if p_addr in item:
                     is_match = True
             if not is_match:
                 return False
-        elif paddr not in addr:
+        elif p_addr not in addr:
             return False
         return True
 
-    def handle_prot(self, pprot, psport, pdport, prot, rule):
-        if pprot == "*" or prot == None:
+    def handle_prot(self, p_prot, p_sport, p_dport, prot, rule):
+        if p_prot == "*" or prot == None:
             return True
-        if pprot != prot:
+        if p_prot != prot:
             return False
         port = rule.get(self.packet["prot"])
         if port:
             sport = self.parse_port(port.get("sport"))
             dport = self.parse_port(port.get("dport"))
-            if psport != "*" and sport != "*":
+            if p_sport != "*" and sport != "*":
                 if int(psport) not in sport:
                     return False
-            if pdport != "*" and dport != "*":
+            if p_dport != "*" and dport != "*":
                 if int(pdport) not in dport:
                     return False
         return True
 
-    def handle_inf(self, pinf, inf):
+    def handle_inf(self, p_inf, inf):
         if inf == "*":
             return True
-        if pinf not in inf:
+        if p_inf not in inf:
             return False
         return True
 
-    def handle_physdev(self, pinif, poutif, physdev):
+    def handle_physdev(self, p_ininf, p_outinf, physdev):
         if physdev == None:
             return True
         phys_in = physdev.get("physdev-in")
         phys_out = physdev.get("physdev-out")
         is_match = False
         if phys_in:
-            if pinif == None:
+            if p_ininf == None:
                 return False
             else:
-                if phys_in in self.get_bridges(pinif):
+                if phys_in in self.get_bridges(p_ininf):
                     is_match = True
                 else:
                     is_match = False
         if phys_out:
-            if poutif == None:
+            if p_outinf == None:
                 return False
             else:
-                if phys_out in self.get_bridges(poutif):
+                if phys_out in self.get_bridges(p_outinf):
                     is_match = True
                 else:
                     is_match = False
@@ -171,36 +170,36 @@ class IptablesHandler:
             return True
         return False
 
-    def handle_state(self, pstate, state):
-        if pstate == "*" or state == None:
+    def handle_state(self, p_state, state):
+        if p_state == "NEW" or state == None:
             return True
         states = (state.get("state") or state.get("ctstate")).split(",")
-        if rstate not in states:
+        if p_state not in states:
             return False
         return True
 
     def match_rule(self, rule, chain, num):
-        src = self.parse_addr(rule.get("src"))
-        dst = self.parse_addr(rule.get("dst"))
-        inif = self.parse_inf(rule.get("in-interface"))
-        outif = self.parse_inf(rule.get("out-interface"))
+        saddr = self.parse_addr(rule.get("saddr"))
+        daddr = self.parse_addr(rule.get("daddr"))
+        ininf = self.parse_inf(rule.get("in-interface"))
+        outinf = self.parse_inf(rule.get("out-interface"))
         prot = rule.get("protocol")
         target = rule.get("target")
         physdev = rule.get("physdev")
         mark = rule.get("mark")
         state = rule.get("state") or rule.get("conntrack")
 
-        if not self.handle_address(self.packet["src"], src):
+        if not self.handle_address(self.packet["saddr"], saddr):
             return False
-        if not self.handle_address(self.packet["dst"], dst):
+        if not self.handle_address(self.packet["daddr"], daddr):
             return False
         if not self.handle_prot(self.packet["prot"], self.packet["sport"], self.packet["dport"], prot, rule):
             return False
-        if not self.handle_inf(self.packet["inif"], inif):
+        if not self.handle_inf(self.packet["ininf"], ininf):
             return False
-        if not self.handle_inf(self.packet["outif"], outif):
+        if not self.handle_inf(self.packet["outinf"], outinf):
             return False
-        if not self.handle_physdev(self.packet["inif"], self.packet["outif"], physdev):
+        if not self.handle_physdev(self.packet["ininf"], self.packet["outinf"], physdev):
             return False
         if not self.handle_mark(mark):
             return False
@@ -220,47 +219,60 @@ class IptablesHandler:
         return target
 
     def get_policy(self, chain):
-        df_chain = chain.split("_")[1]
-        if df_chain in ["PREROUTING", "POSTROUTING"]:
+        if chain in ["PREROUTING", "POSTROUTING"]:
             return "ACCEPT"
-        elif df_chain in ["INPUT", "FORWARD", "OUTPUT"]:
-            output = subprocess.check_output(["iptables", "-S", df_chain])
+        elif chain in ["INPUT", "FORWARD", "OUTPUT"]:
+            output = subprocess.check_output(["iptables", "-S", chain])
             output = output.decode("utf-8")
             return output.split("\n")[0].split(" ")[2]
         return ""
 
-    def match_rule_in_chain(self, chain):
+    def matching(self, chain, table):
         for num, rule in enumerate(self.tables[chain]):
             target = self.match_rule(rule, chain, num + 1)
-            if target:
-                ud_chain = f"{chain.split('_')[0]}_{target}"
-                if self.tables.get(ud_chain) != None:
-                    target = self.match_rule_in_chain(ud_chain)
-                    if target == "RETURN" or target == False:
-                        continue
-                elif isinstance(target, dict):
-                    if target.get("DNAT"):
-                        to_dst = target["DNAT"]["to-destination"].split(":")
-                        if to_dst[0]:
-                            self.packet["dst"] = to_dst[0]
-                        if len(to_dst) == 2:
-                            self.packet["dport"] = to_dst[1]
-                        return False
-                    elif target.get("SNAT"):
-                        to_src = target["SNAT"]["to-source"].split(":")
-                        if to_src[0]:
-                            self.packet["src"] = to_src[0]
-                        if len(to_src) == 2:
-                            self.packet["sport"] = to_src[1]
-                    elif target.get("REDIRECT"):
-                        self.packet["dport"] = target["REDIRECT"]["to-ports"]
-                return target
+            if not target:
+                continue
+            user_chain = f"{table}_{target}"
+            if self.tables.get(user_chain) != None:
+                target = self.match_rule_in_chain(user_chain)
+                if target == "RETURN" or target == False:
+                    continue
+            elif isinstance(target, dict):
+                if target.get("DNAT"):
+                    to_dst = target["DNAT"]["to-destination"].split(":")
+                    if to_dst[0]:
+                        self.packet["daddr"] = to_dst[0]
+                    if len(to_dst) == 2:
+                        self.packet["dport"] = to_dst[1]
+                    return False
+                elif target.get("SNAT"):
+                    to_src = target["SNAT"]["to-source"].split(":")
+                    if to_src[0]:
+                        self.packet["saddr"] = to_src[0]
+                    if len(to_src) == 2:
+                        self.packet["sport"] = to_src[1]
+                elif target.get("REDIRECT"):
+                    self.packet["dport"] = target["REDIRECT"]["to-ports"]
+            return target
+        return False
+
+    def match_rule_in_chain(self, chain):
+        table_name = chain.split("_")[0]
+        chain_name = chain.split("_")[1]
+
+        if table_name == "NAT" and self.packet["state"] != "NEW" and self.packet["state"] != None:
+            return False
+
+        target = self.matching(chain, table_name)
+
+        if target:
+            return target
 
         self.results.append(
             {
                 "chain": chain,
                 "rule": None,
-                "target": self.get_policy(chain),
+                "target": self.get_policy(chain_name),
                 "num": None,
                 "state": None,
             }
