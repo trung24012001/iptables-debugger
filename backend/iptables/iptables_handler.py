@@ -4,6 +4,7 @@ import os
 import uuid
 import subprocess
 from netifaces import ifaddresses, interfaces, AF_INET
+from nsenter import Namespace
 
 
 class IptablesHandler:
