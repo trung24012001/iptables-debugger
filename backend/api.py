@@ -43,10 +43,17 @@ async def create_iptables(filedata: object = Form(), infs: list = Form()):
         "namespace": ns
     }
 
-@router.get("/{namespace}", response_model=str)
+@router.get("/{namespace}", response_model=bool)
 async def get_iptables(namespace: str):
-    ruleset = iptablesns.get_iptables(namespace)
-    return ruleset  
+    is_ns = iptablesns.findns(namespace)
+    if not is_ns:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Namespace not found"
+        )
+    #ruleset = iptablesns.get_iptables(namespace)
+    #return ruleset  
+    return True
 
 @router.post("/{namespace}/packet", response_model=list)
 async def import_packet(namespace: str, packet: dict):

@@ -7,11 +7,10 @@ const formState = reactive({
   dport: null,
   protocol: null,
   state: null,
-  bridgePort: null,
+  bridge: null,
   mark: null,
 });
 const statePacket = ref(false);
-const ipsetPacket = ref(false);
 const markPacket = ref(false);
 const bridgePacket = ref(false);
 
@@ -64,11 +63,6 @@ const onFinish = (values) => {
         >State</a-button
       >
       <a-button
-        :type="ipsetPacket ? 'primary' : 'default'"
-        @click="ipsetPacket = !ipsetPacket"
-        >IPSet</a-button
-      >
-      <a-button
         :type="bridgePacket ? 'primary' : 'default'"
         @click="bridgePacket = !bridgePacket"
         >Bridge</a-button
@@ -116,7 +110,7 @@ const onFinish = (values) => {
       </a-form-item>
       <a-form-item v-if="bridgePacket">
         <a-input
-          v-model:value="formState.bridgePort"
+          v-model:value="formState.bridge"
           placeholder="Bridge Port"
         />
       </a-form-item>

@@ -4,14 +4,16 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host=127.0.0.1 --port=3000",
     "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
     "ant-design-vue": "3.2.15",
+    "ky": "^1.0.1",
     "vis-network": "^9.1.6",
-    "vue": "^3.3.4"
+    "vue": "^3.3.4",
+    "vue-router": "^4.2.5"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^4.2.3",
