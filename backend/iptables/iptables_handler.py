@@ -103,7 +103,7 @@ class IptablesHandler:
         return inf
 
     def handle_address(self, p_addr, addr):
-        if p_addr == "*":
+        if p_addr == None:
             return True
         p_addr = ipaddress.ip_address(p_addr)
         if isinstance(addr, list):
@@ -118,7 +118,7 @@ class IptablesHandler:
         return True
 
     def handle_prot(self, p_prot, p_sport, p_dport, prot, rule):
-        if p_prot == "*" or prot == None:
+        if p_prot == None or prot == None:
             return True
         if p_prot != prot:
             return False
@@ -126,11 +126,11 @@ class IptablesHandler:
         if port:
             sport = self.parse_port(port.get("sport"))
             dport = self.parse_port(port.get("dport"))
-            if p_sport != "*" and sport != "*":
-                if int(psport) not in sport:
+            if p_sport != None and sport != "*":
+                if int(p_sport) not in sport:
                     return False
-            if p_dport != "*" and dport != "*":
-                if int(pdport) not in dport:
+            if p_dport != None and dport != "*":
+                if int(p_dport) not in dport:
                     return False
         return True
 
@@ -207,9 +207,12 @@ class IptablesHandler:
         if not self.handle_state(self.packet["state"], state):
             return False
 
+        table_name, chain_name = self.split_chain(chain) 
+
         self.results.append(
             {
-                "chain": chain, 
+                "table": table_name,
+                "chain": chain_name, 
                 "rule": rule, 
                 "target": target, 
                 "num": num, 
@@ -228,12 +231,18 @@ class IptablesHandler:
             return output.split("\n")[0].split(" ")[2]
         return ""
 
-    def matching(self, chain, table):
+    def split_chain(self, chain):
+        table_name = chain.split("_")[0]
+        chain_name = chain.split("_")[1]
+        return (table_name, chain_name)
+
+    def matching(self, chain):
+        table_name, chain_name = self.split_chain(chain) 
         for num, rule in enumerate(self.tables[chain]):
             target = self.match_rule(rule, chain, num + 1)
             if not target:
                 continue
-            user_chain = f"{table}_{target}"
+            user_chain = f"{table_name}_{target}"
             if self.tables.get(user_chain) != None:
                 target = self.match_rule_in_chain(user_chain)
                 if target == "RETURN" or target == False:
@@ -258,20 +267,20 @@ class IptablesHandler:
         return False
 
     def match_rule_in_chain(self, chain):
-        table_name = chain.split("_")[0]
-        chain_name = chain.split("_")[1]
+        table_name, chain_name = self.split_chain(chain) 
 
         if table_name == "NAT" and self.packet["state"] != "NEW" and self.packet["state"] != None:
             return False
 
-        target = self.matching(chain, table_name)
+        target = self.matching(chain)
 
         if target:
             return target
 
         self.results.append(
             {
-                "chain": chain,
+                "table": table_name,
+                "chain": chain_name,
                 "rule": None,
                 "target": self.get_policy(chain_name),
                 "num": None,

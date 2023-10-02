@@ -8,40 +8,23 @@ const props = defineProps({
 });
 const { data: dataVisualize } = toRefs(props);
 
-for (const item of dataVisualize.value) {
-  console.log(item);
-}
-
 const tables = {
-  mangle: {
+  RAW: {
+    color: {
+      background: "white",
+    },
+  },
+  MANGLE: {
     color: {
       background: "yellow",
-      // border: "yellow",
-      hover: {
-        // border: "#FFEBD2",
-        background: "#0BEC8A",
-      },
-      highlight: {
-        // border: "#F009F3",
-        background: "#CAA2CA",
-      },
     },
   },
-  filter: {
+  FILTER: {
     color: {
-      background: "red",
-      // border: "red",
-      hover: {
-        // border: "#FFEBD2",
-        background: "#0BEC8A",
-      },
-      highlight: {
-        // border: "#F009F3",
-        background: "#CAA2CA",
-      },
+      background: "orange",
     },
   },
-  nat: {
+  NAT: {
     color: {
       // border: "#FFEBD2",
       background: "#0BEC8A",
@@ -64,16 +47,16 @@ const htmlTitle = (html) => {
 };
 let level = 0;
 const edgesData = [];
-const nodesData = dataVisualize.value.reduce((acc, curval, idx) => {
+const nodesData = dataVisualize.value.reduce((acc, curVal, idx) => {
   edgesData.push({ from: idx, to: idx + 1, arrows: "to" });
   if (idx % 4 === 3) level += 1;
   acc.push({
     id: idx,
-    label: `${curval.table}\n${curval.chain}`,
-    title: htmlTitle("<div>HelloWorld</div>"),
+    label: `${curVal.table}\n${curVal.chain}`,
+    title: htmlTitle(`<div>${curVal.rule ? JSON.stringify(curVal.rule) : curVal.target}</div>`),
     shape: "box",
     level: level,
-    color: tables[curval.table].color,
+    color: tables[curVal.table].color,
   });
   return acc;
 }, []);

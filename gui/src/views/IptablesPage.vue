@@ -1,43 +1,68 @@
 <script setup>
-import { ref } from "vue"
-import IptablesData from "@/components/IptablesData.vue";
-import IptablesTable from "@/components/IptablesTable.vue";
-import IptablesVisualize from "@/components/IptablesVisualize.vue";
-import PacketForm from "@/components/PacketForm.vue";
+import { ref } from "vue";
+import { useRouter } from "vue-router";
+import { message } from "ant-design-vue";
+import { UploadOutlined } from '@ant-design/icons-vue';
+import { api, API_URL } from "@/services/api";
+import { useErrorHandling } from "@/services/errorHandling";
 
 
-const ipset = ref(false);
+const router = useRouter()
+const { getErrorResponse } = useErrorHandling();
+const fileUpload = ref();
+const uploading = ref(false)
+const netns = ref();
 
-const onUploadRuleset = async () => {
-  console.log("upload")
+
+const beforeUpload = (file) => {
+  fileUpload.value = file;
+  return false;
 }
 
-const onUploadIpset = async () => {
-  console.log("ipset upload")
+const handleUploadRuleset = async () => {
+  const formData = new FormData();
+  formData.append("filedata", fileUpload.value);
+  uploading.value = true;
+  try {
+    const res = await api.post(`${API_URL}/iptables`, {
+      body: formData,              
+    }).json();
+    netns.value = res.netns;
+    message.success("Upload successfully")
+  } catch(error) {
+    getErrorResponse(error);
+  } finally {
+    fileUpload.value = undefined;
+    uploading.value = false;
+  } 
 }
 
 </script>
 
 <template>
   <div class="iptables-page">
-    <a-button
-      :type="ipset ? 'primary' : 'default'"
-      @click="ipset = !ipset"
-      >IPSet</a-button
-    >
-    <a-typography-title :level="3">Upload IPTables Ruleset</a-typography-title>
-
+    <a-space direction="vertical">
+      <a-typography-title :level="3">Upload IPTables Ruleset</a-typography-title>
+      <a-upload
+        :before-upload="beforeUpload"
+        :max-count="1"
+       >
+        <a-button>
+          <upload-outlined />
+          Upload
+        </a-button>
+      </a-upload>
     <a-button
      type="primary"
-     @click="onUploadRuleset"
-     >Upload</a-button>
-    
-    <a-space v-if="ipset">
-      <a-typography-title :level="3">Upload IPSet</a-typography-title>
-      <a-button
-       type="primary"
-       @click="onUploadIpset"
-       >Upload</a-button>
+     :disabled="!fileUpload"
+     :loading="uploading"
+     @click="handleUploadRuleset"
+     >Submit</a-button>
+    <a-button
+     type="primary"
+     @click="() => router.push(netns)"
+     v-if="netns"
+     >Simulate</a-button>
     </a-space>
   </div>
 </template>

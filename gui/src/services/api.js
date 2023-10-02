@@ -1,6 +1,6 @@
 import ky from "ky";
 
-const api = ky.extend({
+export const api = ky.extend({
   hooks: {
     beforeRequest: [
       async (request) => {},
@@ -12,4 +12,4 @@ const api = ky.extend({
     ],
   },
 });
-export default api;
+export const API_URL = import.meta.env.VITE_API_URL;
