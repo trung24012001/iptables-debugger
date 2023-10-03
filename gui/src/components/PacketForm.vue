@@ -4,11 +4,10 @@ import { message } from "ant-design-vue";
 import { api, API_URL } from "@/services/api";
 import { useErrorHandling } from "@/services/errorHandling";
 
-
 const props = defineProps({
   onVisualize: Function,
   netns: String,
-})
+});
 
 const { getErrorResponse } = useErrorHandling();
 
@@ -76,18 +75,19 @@ const onFinish = async () => {
   try {
     sending.value = true;
     props.onVisualize([]);
-    const res = await api.post(`${API_URL}/${props.netns}/packet`, {
-      json: formState
-    }).json();
+    const res = await api
+      .post(`${API_URL}/${props.netns}/packet`, {
+        json: formState,
+      })
+      .json();
     props.onVisualize(res);
     message.success("Packet sent");
-  } catch(error) {
+  } catch (error) {
     console.log(error);
     getErrorResponse(error);
   } finally {
     sending.value = false;
   }
-  
 };
 </script>
 
@@ -96,72 +96,38 @@ const onFinish = async () => {
     <a-typography-title :level="3">Packet Simulator</a-typography-title>
     <a-space style="margin-bottom: 15px">
       <a-space-compact>
-        <a-button
-         :type="bridgePacket ? 'primary' : 'default'"
-         @click="bridgePacket = !bridgePacket"
-         >Bridge</a-button
-        >
-        <a-button
-         :type="ipsetPacket ? 'primary' : 'default'"
-         @click="ipsetPacket = !ipsetPacket"
-         >IPSet</a-button
-        >
-        <a-button
-         :type="markPacket ? 'primary' : 'default'"
-         @click="markPacket = !markPacket"
-         >Mark</a-button
-        >
+        <a-button :type="bridgePacket ? 'primary' : 'default'" @click="bridgePacket = !bridgePacket">Bridge</a-button>
+        <a-button :type="ipsetPacket ? 'primary' : 'default'" @click="ipsetPacket = !ipsetPacket">IPSet</a-button>
+        <a-button :type="markPacket ? 'primary' : 'default'" @click="markPacket = !markPacket">Mark</a-button>
       </a-space-compact>
     </a-space>
     <a-form layout="inline" :model="formState" @finish="onFinish">
       <a-form-item>
-        <a-select
-          style="width: 120px"
-          placeholder="State"
-          v-model:value="formState.state"
-          :options="states"
-        ></a-select>
+        <a-select style="width: 120px" placeholder="State" v-model:value="formState.state" :options="states"></a-select>
       </a-form-item>
       <a-form-item>
-        <a-select
-          style="width: 120px"
-          placeholder="Protocol"
-          v-model:value="formState.prot"
-          :options="prots"
-        ></a-select>
+        <a-select style="width: 120px" placeholder="Protocol" v-model:value="formState.prot" :options="prots"></a-select>
       </a-form-item>
       <a-form-item>
         <a-input v-model:value="formState.smac" placeholder="Source MAC" />
       </a-form-item>
       <a-form-item>
-        <a-input
-          v-model:value="formState.dmac"
-          placeholder="Destination MAC"
-        />
+        <a-input v-model:value="formState.dmac" placeholder="Destination MAC" />
       </a-form-item>
       <a-form-item>
         <a-input v-model:value="formState.saddr" placeholder="Source Address" />
       </a-form-item>
       <a-form-item>
-        <a-input
-          v-model:value="formState.daddr"
-          placeholder="Destination Address"
-        />
+        <a-input v-model:value="formState.daddr" placeholder="Destination Address" />
       </a-form-item>
       <a-form-item v-if="portEnable">
         <a-input v-model:value="formState.sport" placeholder="Soure Port" />
       </a-form-item>
       <a-form-item v-if="portEnable">
-        <a-input
-          v-model:value="formState.dport"
-          placeholder="Destination Port"
-        />
+        <a-input v-model:value="formState.dport" placeholder="Destination Port" />
       </a-form-item>
       <a-form-item v-if="bridgePacket">
-        <a-input
-          v-model:value="formState.bridge"
-          placeholder="Bridge"
-        />
+        <a-input v-model:value="formState.bridge" placeholder="Bridge" />
       </a-form-item>
       <a-form-item v-if="markPacket">
         <a-input v-model:value="formState.mark" placeholder="Mark" />

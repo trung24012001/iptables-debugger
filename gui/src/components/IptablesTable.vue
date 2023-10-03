@@ -1,11 +1,14 @@
 <script setup>
-import { toRefs } from "vue";
+import { toRefs, computed } from 'vue';
+
 
 const props = defineProps({
   data: Array,
 });
-const { data: dataVisualize } = toRefs(props);
-const dataSource = dataVisualize.value.map((item, idx) => {
+
+const { data: dataVisualize } = toRefs(props)
+
+const dataSource = computed(() => dataVisualize.value.map((item, idx) => {
   return {
     key: idx,
     num: item.num,
@@ -17,7 +20,7 @@ const dataSource = dataVisualize.value.map((item, idx) => {
     dst: item.rule?.dst,
     target: item.target,
   };
-});
+}));
 
 const columns = [
   {
@@ -68,21 +71,16 @@ const handleResizeColumn = (w, col) => {
 </script>
 
 <template>
-  <a-table
-    :dataSource="dataSource"
-    :columns="columns"
-    :pagination="false"
-    @resizeColumn="handleResizeColumn"
-  >
+  <a-table :dataSource="dataSource" :columns="columns" :pagination="false" @resizeColumn="handleResizeColumn">
     <template #bodyCell="{ column, text, record }">
       <template v-if="column.dataIndex === 'target'">
         {{ text }}
       </template>
       <template v-else-if="['src', 'dst'].includes(column.dataIndex)">
-        {{ text ? text : "0.0.0.0/0" }}
+        {{ text ? text : (record.num ? "0.0.0.0/0" : "") }}
       </template>
       <template v-else>
-        {{ text ? text : "*" }}
+        {{ text ? text : (record.num ? "*" : "") }}
       </template>
     </template>
   </a-table>

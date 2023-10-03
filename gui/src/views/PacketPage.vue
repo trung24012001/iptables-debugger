@@ -8,30 +8,25 @@ import IptablesTable from "@/components/IptablesTable.vue";
 import IptablesVisualize from "@/components/IptablesVisualize.vue";
 import PacketForm from "@/components/PacketForm.vue";
 
-
 const route = useRoute();
 const router = useRouter();
 const { netns } = route.params;
 const { getErrorResponse } = useErrorHandling();
 const visualizeData = ref();
 
-
 const onVisualize = (rules) => {
   visualizeData.value = rules;
-}
-
+};
 
 const checkNetns = async () => {
   try {
     await api.get(`${API_URL}/${netns}`);
-  } catch(error) {
+  } catch (error) {
     getErrorResponse(error);
     router.push({ name: "NotFoundPage" });
   }
-}
-checkNetns()
-
-
+};
+checkNetns();
 </script>
 
 <template>
