@@ -23,9 +23,10 @@ const formState = reactive({
   bridge: null,
   mark: null,
 });
-const markPacket = ref(false);
+const macPacket = ref(false);
 const bridgePacket = ref(false);
 const ipsetPacket = ref(false);
+const markPacket = ref(false);
 
 const portEnable = computed(
   () => formState.prot === "tcp" || formState.prot === "udp"
@@ -96,35 +97,68 @@ const onFinish = async () => {
     <a-typography-title :level="3">Packet Simulator</a-typography-title>
     <a-space style="margin-bottom: 15px">
       <a-space-compact>
-        <a-button :type="bridgePacket ? 'primary' : 'default'" @click="bridgePacket = !bridgePacket">Bridge</a-button>
-        <a-button :type="ipsetPacket ? 'primary' : 'default'" @click="ipsetPacket = !ipsetPacket">IPSet</a-button>
-        <a-button :type="markPacket ? 'primary' : 'default'" @click="markPacket = !markPacket">Mark</a-button>
+        <a-button
+          :type="macPacket ? 'primary' : 'default'"
+          @click="macPacket = !macPacket"
+          >Mac</a-button
+        >
+        <a-button
+          :type="bridgePacket ? 'primary' : 'default'"
+          @click="bridgePacket = !bridgePacket"
+          >Bridge</a-button
+        >
+        <a-button
+          :type="ipsetPacket ? 'primary' : 'default'"
+          @click="ipsetPacket = !ipsetPacket"
+          >IPSet</a-button
+        >
+        <a-button
+          :type="markPacket ? 'primary' : 'default'"
+          @click="markPacket = !markPacket"
+          >Mark</a-button
+        >
       </a-space-compact>
     </a-space>
     <a-form layout="inline" :model="formState" @finish="onFinish">
       <a-form-item>
-        <a-select style="width: 120px" placeholder="State" v-model:value="formState.state" :options="states"></a-select>
+        <a-select
+          style="width: 120px"
+          placeholder="State"
+          v-model:value="formState.state"
+          :options="states"
+        ></a-select>
       </a-form-item>
       <a-form-item>
-        <a-select style="width: 120px" placeholder="Protocol" v-model:value="formState.prot" :options="prots"></a-select>
+        <a-select
+          style="width: 120px"
+          placeholder="Protocol"
+          v-model:value="formState.prot"
+          :options="prots"
+        ></a-select>
       </a-form-item>
-      <a-form-item>
+      <a-form-item v-if="macPacket">
         <a-input v-model:value="formState.smac" placeholder="Source MAC" />
       </a-form-item>
-      <a-form-item>
+      <a-form-item v-if="macPacket">
         <a-input v-model:value="formState.dmac" placeholder="Destination MAC" />
       </a-form-item>
       <a-form-item>
         <a-input v-model:value="formState.saddr" placeholder="Source Address" />
       </a-form-item>
       <a-form-item>
-        <a-input v-model:value="formState.daddr" placeholder="Destination Address" />
+        <a-input
+          v-model:value="formState.daddr"
+          placeholder="Destination Address"
+        />
       </a-form-item>
       <a-form-item v-if="portEnable">
         <a-input v-model:value="formState.sport" placeholder="Soure Port" />
       </a-form-item>
       <a-form-item v-if="portEnable">
-        <a-input v-model:value="formState.dport" placeholder="Destination Port" />
+        <a-input
+          v-model:value="formState.dport"
+          placeholder="Destination Port"
+        />
       </a-form-item>
       <a-form-item v-if="bridgePacket">
         <a-input v-model:value="formState.bridge" placeholder="Bridge" />
@@ -133,8 +167,16 @@ const onFinish = async () => {
         <a-input v-model:value="formState.mark" placeholder="Mark" />
       </a-form-item>
       <a-form-item>
-        <a-button type="primary" html-type="submit" :loading="sending">Send</a-button>
+        <a-button type="primary" html-type="submit" :loading="sending"
+          >Send</a-button
+        >
       </a-form-item>
     </a-form>
   </div>
 </template>
+<style scoped>
+.ant-form-item {
+  margin-right: 10px;
+  margin-top: 10px;
+}
+</style>

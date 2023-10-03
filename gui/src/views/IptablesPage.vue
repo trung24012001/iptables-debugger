@@ -2,24 +2,26 @@
 import { ref } from "vue";
 import { useRouter } from "vue-router";
 import { message } from "ant-design-vue";
-import { UploadOutlined } from "@ant-design/icons-vue";
 import { api, API_URL } from "@/services/api";
 import { useErrorHandling } from "@/services/errorHandling";
+import EtherInput from "@/components/EtherInput.vue";
+import IptablesUpload from "@/components/IptablesUpload.vue";
 
 const router = useRouter();
 const { getErrorResponse } = useErrorHandling();
+const netns = ref();
+const interfaces = ref();
 const fileUpload = ref();
 const uploading = ref(false);
-const netns = ref();
 
-const beforeUpload = (file) => {
+const onUpload = (file) => {
   fileUpload.value = file;
-  return false;
 };
 
-const handleUploadRuleset = async () => {
+const handleUpload = async () => {
   const formData = new FormData();
   formData.append("filedata", fileUpload.value);
+  formData.append("interfaces", JSON.stringify(interfaces.value));
   uploading.value = true;
   try {
     const res = await api
@@ -36,30 +38,29 @@ const handleUploadRuleset = async () => {
     uploading.value = false;
   }
 };
+
+const onEtherChange = (ethers) => {
+  interfaces.value = ethers;
+};
 </script>
 
 <template>
   <div class="iptables-page">
-    <a-space direction="vertical">
-      <a-typography-title :level="3"
-        >Upload IPTables Ruleset</a-typography-title
-      >
-      <a-upload :before-upload="beforeUpload" :max-count="1">
-        <a-button>
-          <upload-outlined />
-          Upload
-        </a-button>
-      </a-upload>
-      <a-button
-        type="primary"
-        :disabled="!fileUpload"
-        :loading="uploading"
-        @click="handleUploadRuleset"
-        >Submit</a-button
-      >
-      <a-button type="primary" @click="() => router.push(netns)" v-if="netns"
-        >Simulate</a-button
-      >
+    <a-space size="large" direction="vertical" style="width: 1000px">
+      <iptables-upload @on-upload="onUpload" :fileUpload="fileUpload" />
+      <ether-input @on-change="onEtherChange" />
+      <a-space style="margin-top: 35px">
+        <a-button
+          type="primary"
+          :disabled="!fileUpload"
+          :loading="uploading"
+          @click="handleUpload"
+          >Submit</a-button
+        >
+        <a-button type="primary" @click="() => router.push(netns)" v-if="netns"
+          >Simulate</a-button
+        >
+      </a-space>
     </a-space>
   </div>
 </template>
