@@ -1,5 +1,5 @@
 <script setup>
-import { defineEmits, defineProps, toRefs, ref, watch } from "vue";
+import { toRefs, ref, watch } from "vue";
 import { UploadOutlined } from "@ant-design/icons-vue";
 
 const emits = defineEmits(["onUpload"]);
@@ -23,11 +23,7 @@ watch(fileUpload, (newVal, _) => {
 <template>
   <div class="iptables-upload">
     <a-typography-title :level="3">Upload IPTables Ruleset</a-typography-title>
-    <a-upload
-      :before-upload="beforeUpload"
-      :max-count="1"
-      v-model:file-list="fileList"
-    >
+    <a-upload :before-upload="beforeUpload" :max-count="1" v-model:file-list="fileList">
       <a-button>
         <upload-outlined />
         Upload

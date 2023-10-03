@@ -49,17 +49,9 @@ const onEtherChange = (ethers) => {
     <a-space size="large" direction="vertical" style="width: 1000px">
       <iptables-upload @on-upload="onUpload" :fileUpload="fileUpload" />
       <ether-input @on-change="onEtherChange" />
-      <a-space style="margin-top: 35px">
-        <a-button
-          type="primary"
-          :disabled="!fileUpload"
-          :loading="uploading"
-          @click="handleUpload"
-          >Submit</a-button
-        >
-        <a-button type="primary" @click="() => router.push(netns)" v-if="netns"
-          >Simulate</a-button
-        >
+      <a-space style="margin-top: 25px">
+        <a-button type="primary" :disabled="!fileUpload" :loading="uploading" @click="handleUpload">Submit</a-button>
+        <a-button type="primary" @click="() => router.push(netns)" v-if="netns">Simulate</a-button>
       </a-space>
     </a-space>
   </div>

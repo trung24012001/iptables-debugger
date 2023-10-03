@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from "vue";
+import { onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { api, API_URL } from "@/services/api";
 import { useErrorHandling } from "@/services/errorHandling";
@@ -13,26 +13,32 @@ const router = useRouter();
 const { netns } = route.params;
 const { getErrorResponse } = useErrorHandling();
 const visualizeData = ref();
+const interfaces = ref([]);
 
 const onVisualize = (rules) => {
   visualizeData.value = rules;
 };
 
-const checkNetns = async () => {
+const getNetns = async () => {
   try {
-    await api.get(`${API_URL}/${netns}`);
+    const res = await api.get(`${API_URL}/${netns}`).json();
+    interfaces.value = res;
   } catch (error) {
     getErrorResponse(error);
     router.push({ name: "NotFoundPage" });
   }
 };
-checkNetns();
+
+onMounted(async () => {
+  await getNetns();
+})
+await getNetns();
 </script>
 
 <template>
   <div class="packet-page">
     <a-space direction="vertical" size="large">
-      <PacketForm :netns="netns" :on-visualize="onVisualize" />
+      <PacketForm :netns="netns" :interfaces="interfaces" :on-visualize="onVisualize" />
       <IptablesData />
       <div v-if="visualizeData">
         <IptablesVisualize :data="visualizeData" />

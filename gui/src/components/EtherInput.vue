@@ -8,27 +8,27 @@ const inputs = reactive([
   {
     id: new Date(),
     link: "loopback",
-    type: null,
+    type: "dummy",
     name: "lo",
-    ipv4: "127.0.0.1",
+    addr: "127.0.0.1",
     mac: "00:00:00:00:00:00",
     disabled: true,
   },
 ]);
 
-const types = ref([
-  {
-    value: null,
-    label: "default",
-  },
-  {
-    value: "bridge",
-    label: "bridge",
-  },
-]);
+// const types = ref([
+//   {
+//     value: "dummy",
+//     label: "default",
+//   },
+//   {
+//     value: "bridge",
+//     label: "bridge",
+//   },
+// ]);
 
 const handleAdd = () => {
-  inputs.push({ id: new Date(), link: "ether", type: null, name: "ethName" });
+  inputs.push({ id: new Date(), link: "ether", type: "dummy", name: "ethname" });
 };
 
 const handleDelete = (id) => {
@@ -54,46 +54,15 @@ watch(
           <a-button style="width: 10%" :disabled="item.disabled">{{
             item.link
           }}</a-button>
-          <a-select
-            style="width: 15%"
-            v-model:value="item.type"
-            :options="types"
-            :disabled="item.disabled"
-          />
-          <a-input
-            style="width: 15%"
-            v-model:value="item.name"
-            :disabled="item.disabled"
-            placeholder="ifname"
-          />
-          <a-input
-            style="width: 30%"
-            v-model:value="item.ipv4"
-            :disabled="item.disabled"
-            placeholder="ipv4"
-          />
-          <a-input
-            style="width: 30%"
-            v-model:value="item.mac"
-            :disabled="item.disabled"
-            placeholder="mac"
-          />
+          <!-- <a-select style="width: 15%" v-model:value="item.type" :options="types" :disabled="item.disabled" /> -->
+          <a-input style="width: 15%" v-model:value="item.name" :disabled="item.disabled" placeholder="ifname" />
+          <a-input style="width: 30%" v-model:value="item.addr" :disabled="item.disabled" placeholder="addr" />
+          <a-input style="width: 30%" v-model:value="item.mac" :disabled="item.disabled" placeholder="mac" />
         </a-input-group>
         <a-space>
-          <a-button
-            shape="circle"
-            :icon="h(DeleteOutlined)"
-            style="margin: 0px 5px"
-            @click="handleDelete(item.id)"
-            danger
-            v-if="!item.disabled"
-          />
-          <a-button
-            shape="circle"
-            :icon="h(PlusOutlined)"
-            @click="handleAdd"
-            v-if="idx === inputs.length - 1"
-          />
+          <a-button shape="circle" :icon="h(DeleteOutlined)" style="margin: 0px 5px" @click="handleDelete(item.id)" danger
+            v-if="!item.disabled" />
+          <a-button shape="circle" :icon="h(PlusOutlined)" @click="handleAdd" v-if="idx === inputs.length - 1" />
         </a-space>
       </div>
     </a-space>

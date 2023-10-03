@@ -1,5 +1,5 @@
 <script setup>
-import { toRefs, onMounted, computed, watch } from "vue";
+import { toRefs, onMounted, watch } from "vue";
 import vis from "vis-network/dist/vis-network.min.js";
 import "vis-network/dist/dist/vis-network.min.css";
 
