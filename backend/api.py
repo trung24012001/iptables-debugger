@@ -6,6 +6,8 @@ import pathlib
 import aiofiles
 import uuid
 import os
+import json
+import time
 
 
 router = APIRouter()
@@ -20,18 +22,18 @@ def test():
     }
 
 @router.post("/iptables", response_model=dict)
-async def create_iptables(filedata: UploadFile = Form()):
-    ns = str(uuid.uuid4())[:8]
-    filename = f"{ns}.iptables"
-    filepath = f"{FILE_DIR}/{filename}"
+async def create_iptables(filedata: UploadFile = Form(), interfaces: str = Form()):
+    netns = str(uuid.uuid4())[:8]
+    filepath = f"{FILE_DIR}/{netns}.iptables"
+    
     async with aiofiles.open(filepath, "wb") as out_file:
         while content := await filedata.read(1024):
             await out_file.write(content)
     try:
-        iptablesns.addns(ns)
-        iptablesns.init_iptables(filename, ns)
+        iptablesns.addns(netns)
+        iptablesns.init_iptables(filepath, netns)
     except Exception as e:
-        iptablesns.delns(ns)
+        iptablesns.delns(netns)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Could not create iptables ruleset: {e}",
@@ -39,22 +41,32 @@ async def create_iptables(filedata: UploadFile = Form()):
     finally:
         os.remove(filepath)
 
+    try:
+        infs = json.loads(interfaces)
+        iptablesns.init_interfaces(infs, netns)
+    except Exception as e:
+        iptablesns.delns(netns)
+        raise HTTPException(
+            status_cod=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Could not create interfaces: {e}",
+        )
+
     return {
-        "netns": ns
+        "netns": netns
     }
 
 
-@router.get("/{namespace}", response_model=bool)
-async def get_iptables(namespace: str):
+@router.get("/{namespace}", response_model=list)
+async def get_namespace_data(namespace: str):
     is_ns = iptablesns.findns(namespace)
     if not is_ns:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Namespace not found"
         )
-    #ruleset = iptablesns.get_iptables(namespace)
-    #return ruleset  
-    return True
+    time.sleep(2)
+    interfaces = iptablesns.get_interfaces(namespace)
+    return interfaces
 
 
 @router.post("/{namespace}/ipset", response_model=bool)
@@ -76,10 +88,6 @@ async def create_import_packet(namespace: str, packet: dict):
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Namespace not found"
         )
-
-    packet["ininf"] = None
-    packet["outinf"] = None
-
     with Namespace(f"/var/run/netns/{namespace}", "net"):
         iptables = IptablesHandler()
         results = iptables.import_packet(packet)
