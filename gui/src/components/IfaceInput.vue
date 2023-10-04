@@ -1,5 +1,5 @@
 <script setup>
-import { h, reactive, ref, watch, defineEmits } from "vue";
+import { h, reactive, ref, watch } from "vue";
 import { DeleteOutlined, PlusOutlined } from "@ant-design/icons-vue";
 
 const emit = defineEmits(["onChange"]);
@@ -16,16 +16,20 @@ const inputs = reactive([
   },
 ]);
 
-// const types = ref([
-//   {
-//     value: "dummy",
-//     label: "default",
-//   },
-//   {
-//     value: "bridge",
-//     label: "bridge",
-//   },
-// ]);
+const types = ref([
+  {
+    value: "dummy",
+    label: "default",
+  },
+  {
+    value: "bridge",
+    label: "bridge",
+  },
+  {
+    value: "bridge_slave",
+    label: "bridge port",
+  },
+]);
 
 const handleAdd = () => {
   inputs.push({ id: new Date(), link: "ether", type: "dummy", name: "ethname" });
@@ -54,10 +58,10 @@ watch(
           <a-button style="width: 10%" :disabled="item.disabled">{{
             item.link
           }}</a-button>
-          <!-- <a-select style="width: 15%" v-model:value="item.type" :options="types" :disabled="item.disabled" /> -->
-          <a-input style="width: 20%" v-model:value="item.name" :disabled="item.disabled" placeholder="ifname" />
-          <a-input style="width: 35%" v-model:value="item.addr" :disabled="item.disabled" placeholder="addr" />
-          <a-input style="width: 35%" v-model:value="item.mac" :disabled="item.disabled" placeholder="mac" />
+          <a-select style="width: 15%" v-model:value="item.type" :options="types" :disabled="item.disabled" />
+          <a-input style="width: 15%" v-model:value="item.name" :disabled="item.disabled" placeholder="ifname" />
+          <a-input style="width: 30%" v-model:value="item.addr" :disabled="item.disabled" placeholder="addr" />
+          <a-input style="width: 30%" v-model:value="item.mac" :disabled="item.disabled" placeholder="mac" />
         </a-input-group>
         <a-space>
           <a-button shape="circle" :icon="h(DeleteOutlined)" style="margin: 0px 5px" @click="handleDelete(item.id)" danger
