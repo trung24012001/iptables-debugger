@@ -16,6 +16,8 @@ const dataSource = computed(() => dataVisualize.value.map((item, idx) => {
     table: item.table,
     chain: item.chain,
     protocol: item.rule?.protocol,
+    ininf: item.rule?.ininf,
+    outinf: item.rule?.outinf,
     src: item.rule?.src,
     dst: item.rule?.dst,
     target: item.target,
@@ -28,11 +30,11 @@ const columns = [
     dataIndex: "num",
     key: "num",
   },
-  {
-    title: "Counters",
-    dataIndex: "counters",
-    key: "counters",
-  },
+  // {
+  //   title: "Counters",
+  //   dataIndex: "counters",
+  //   key: "counters",
+  // },
   {
     title: "Table",
     dataIndex: "table",
@@ -48,6 +50,16 @@ const columns = [
     dataIndex: "protocol",
     key: "protocol",
   },
+  // {
+  //   title: "In",
+  //   dataIndex: "in-interface",
+  //   key: "in-interface",
+  // },
+  // {
+  //   title: "Out",
+  //   dataIndex: "out-interface",
+  //   key: "out-interface",
+  // },
   {
     title: "Source",
     dataIndex: "src",
@@ -76,11 +88,14 @@ const handleResizeColumn = (w, col) => {
       <template v-if="column.dataIndex === 'target'">
         {{ text }}
       </template>
+      <template v-else-if="!record.num">
+        {{ text }}
+      </template>
       <template v-else-if="['src', 'dst'].includes(column.dataIndex)">
-        {{ text ? text : (record.num ? "0.0.0.0/0" : "") }}
+        {{ text ? text : "0.0.0.0/0" }}
       </template>
       <template v-else>
-        {{ text ? text : (record.num ? "*" : "") }}
+        {{ text ? text : "*" }}
       </template>
     </template>
   </a-table>

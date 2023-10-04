@@ -3,7 +3,6 @@ import { onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { api, API_URL } from "@/services/api";
 import { useErrorHandling } from "@/services/errorHandling";
-import IptablesData from "@/components/IptablesData.vue";
 import IptablesTable from "@/components/IptablesTable.vue";
 import IptablesVisualize from "@/components/IptablesVisualize.vue";
 import PacketForm from "@/components/PacketForm.vue";
@@ -39,7 +38,6 @@ await getNetns();
   <div class="packet-page">
     <a-space direction="vertical" size="large">
       <PacketForm :netns="netns" :interfaces="interfaces" :on-visualize="onVisualize" />
-      <IptablesData />
       <div v-if="visualizeData">
         <IptablesVisualize :data="visualizeData" />
         <IptablesTable :data="visualizeData" />

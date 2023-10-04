@@ -55,9 +55,9 @@ watch(
             item.link
           }}</a-button>
           <!-- <a-select style="width: 15%" v-model:value="item.type" :options="types" :disabled="item.disabled" /> -->
-          <a-input style="width: 15%" v-model:value="item.name" :disabled="item.disabled" placeholder="ifname" />
-          <a-input style="width: 30%" v-model:value="item.addr" :disabled="item.disabled" placeholder="addr" />
-          <a-input style="width: 30%" v-model:value="item.mac" :disabled="item.disabled" placeholder="mac" />
+          <a-input style="width: 20%" v-model:value="item.name" :disabled="item.disabled" placeholder="ifname" />
+          <a-input style="width: 35%" v-model:value="item.addr" :disabled="item.disabled" placeholder="addr" />
+          <a-input style="width: 35%" v-model:value="item.mac" :disabled="item.disabled" placeholder="mac" />
         </a-input-group>
         <a-space>
           <a-button shape="circle" :icon="h(DeleteOutlined)" style="margin: 0px 5px" @click="handleDelete(item.id)" danger

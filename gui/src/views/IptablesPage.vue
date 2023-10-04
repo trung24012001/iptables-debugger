@@ -4,7 +4,7 @@ import { useRouter } from "vue-router";
 import { message } from "ant-design-vue";
 import { api, API_URL } from "@/services/api";
 import { useErrorHandling } from "@/services/errorHandling";
-import EtherInput from "@/components/EtherInput.vue";
+import IfaceInput from "@/components/IfaceInput.vue";
 import IptablesUpload from "@/components/IptablesUpload.vue";
 
 const router = useRouter();
@@ -39,8 +39,8 @@ const handleUpload = async () => {
   }
 };
 
-const onEtherChange = (ethers) => {
-  interfaces.value = ethers;
+const onIfaceChange = (ifaces) => {
+  interfaces.value = ifaces;
 };
 </script>
 
@@ -48,7 +48,7 @@ const onEtherChange = (ethers) => {
   <div class="iptables-page">
     <a-space size="large" direction="vertical" style="width: 1000px">
       <iptables-upload @on-upload="onUpload" :fileUpload="fileUpload" />
-      <ether-input @on-change="onEtherChange" />
+      <iface-input @on-change="onIfaceChange" />
       <a-space style="margin-top: 25px">
         <a-button type="primary" :disabled="!fileUpload" :loading="uploading" @click="handleUpload">Submit</a-button>
         <a-button type="primary" @click="() => router.push(netns)" v-if="netns">Simulate</a-button>
