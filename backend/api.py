@@ -7,7 +7,6 @@ import aiofiles
 import uuid
 import os
 import json
-import time
 
 
 router = APIRouter()
@@ -64,7 +63,6 @@ async def get_namespace_data(namespace: str):
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Namespace not found"
         )
-    time.sleep(2)
     interfaces = iptablesns.get_interfaces(namespace)
     return interfaces
 

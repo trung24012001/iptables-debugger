@@ -57,9 +57,12 @@ class IptablesHandler:
                     addrinf[addr] = ifaceName
         return addrinf
 
-    def get_bridges(inf):
-        path = "/sys/class/net/{}/brif/".format(inf)
-        return os.listdir(path)
+    def get_bridges(self, inf):
+        try:
+            path = "/sys/class/net/{}/brif/".format(inf)
+            return os.listdir(path)
+        except:
+            return []
 
     def set_chains(self):
         chains = ["MANGLE_FORWARD", "FILTER_FORWARD", "MANGLE_POSTROUTING", "NAT_POSTROUTING"]
@@ -117,6 +120,7 @@ class IptablesHandler:
         return True
 
     def handle_prot(self, p_prot, p_sport, p_dport, prot, rule):
+        print(p_dport, prot, rule)
         if prot == None:
             return True
         if p_prot != prot:
@@ -186,14 +190,13 @@ class IptablesHandler:
                 return False
         return True
 
-    def handle_mark(self, mark):
-        # I will handle this later
+    def handle_mark(self, p_mark, mark):
         if mark == None:
             return True
-        return False
+        return True
 
     def handle_state(self, p_state, state):
-        if p_state == "NEW" or state == None:
+        if state == None:
             return True
         states = (state.get("state") or state.get("ctstate")).split(",")
         if p_state not in states:
@@ -224,10 +227,10 @@ class IptablesHandler:
             return False
         if not self.handle_mac(self.packet["smac"], self.packet["dmac"], mac):
             return False
-        #if not self.handle_physdev(self.packet["ininf"], self.packet["outinf"], physdev):
-        #    return False
-        #if not self.handle_mark(mark):
-        #    return False
+        if not self.handle_physdev(self.packet["ininf"], self.packet["outinf"], physdev):
+            return False
+        if not self.handle_mark(self.packet["mark"], mark):
+            return False
         if not self.handle_state(self.packet["state"], state):
             return False
 
@@ -278,24 +281,21 @@ class IptablesHandler:
                         self.packet["daddr"] = to_dst[0]
                     if len(to_dst) == 2:
                         self.packet["dport"] = to_dst[1]
-                    return False
                 elif target.get("SNAT"):
                     to_src = target["SNAT"]["to-source"].split(":")
                     if to_src[0]:
                         self.packet["saddr"] = to_src[0]
                     if len(to_src) == 2:
                         self.packet["sport"] = to_src[1]
-                    return False
                 elif target.get("REDIRECT"):
                     self.packet["dport"] = target["REDIRECT"]["to-ports"]
-                    return False
             return target
         return None
 
     def match_rule_in_chain(self, chain):
         table_name, chain_name = self.split_chain(chain) 
 
-        if table_name == "NAT" and self.packet["state"] != "NEW" and self.packet["state"] != None:
+        if table_name == "NAT" and self.packet["state"] != "NEW":
             return False
 
         target = self.matching(chain)
@@ -321,6 +321,6 @@ class IptablesHandler:
                 new_chains = self.set_chains()
                 return self.processing(new_chains)
             target = self.match_rule_in_chain(chain)
-            if target:
+            if target in ["ACCEPT", "DROP", "REJECT"]:
                 return True
         return False
