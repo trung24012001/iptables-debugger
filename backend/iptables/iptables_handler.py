@@ -9,7 +9,7 @@ from nsenter import Namespace
 
 class IptablesHandler:
     def __init__(self):
-        self.addrInf = self.get_addrinf()
+        self.addrinf = self.get_addrinf()
         self.tables = self.init_tables()
         self.packet = {}
         self.results = []
@@ -22,11 +22,12 @@ class IptablesHandler:
 
     def init_chains(self):
         chains = ["RAW_PREROUTING", "MANGLE_PREROUTING", "NAT_PREROUTING", "ROUTING"]
-        if self.addrInf.get(self.packet["saddr"]):
+        #if self.addrinf.get(self.packet["saddr"]):
+        if self.packet["outinf"]:
             chains = ["RAW_OUTPUT", "MANGLE_OUTPUT", "NAT_OUTPUT", "FILTER_OUTPUT", "MANGLE_POSTROUTING", "NAT_POSTROUTING"]
-            self.packet["outinf"] = self.addrInf[self.packet["saddr"]]
-        elif self.addrInf.get(self.packet["daddr"]):
-            self.packet["ininf"] = self.addrInf[self.packet["daddr"]]
+            #self.packet["outinf"] = self.addrinf[self.packet["saddr"]]
+        #elif self.addrinf.get(self.packet["daddr"]):
+        #    self.packet["ininf"] = self.addrinf[self.packet["daddr"]]
         return chains
 
     def init_tables(self):
@@ -48,13 +49,13 @@ class IptablesHandler:
 
 
     def get_addrinf(self):
-        addrInf = {}
+        addrinf = {}
         for ifaceName in interfaces():
             for inf in ifaddresses(ifaceName).setdefault(AF_INET, [{"addr": None}]):
                 addr = inf["addr"]
                 if addr:
-                    addrInf[addr] = ifaceName
-        return addrInf
+                    addrinf[addr] = ifaceName
+        return addrinf
 
     def get_bridges(inf):
         path = "/sys/class/net/{}/brif/".format(inf)
@@ -62,9 +63,9 @@ class IptablesHandler:
 
     def set_chains(self):
         chains = ["MANGLE_FORWARD", "FILTER_FORWARD", "MANGLE_POSTROUTING", "NAT_POSTROUTING"]
-        if self.addrInf.get(self.packet["saddr"]):
+        if self.addrinf.get(self.packet["saddr"]):
             chains = ["RAW_OUTPUT", "MANGLE_OUTPUT", "NAT_OUTPUT", "FILTER_OUTPUT", "MANGLE_POSTROUTING", "NAT_POSTROUTING"]
-        elif self.addrInf.get(self.packet["daddr"]):
+        elif self.addrinf.get(self.packet["daddr"]):
             chains = ["MANGLE_INPUT", "NAT_INPUT", "FILTER_INPUT"]
         return chains
 
@@ -84,8 +85,8 @@ class IptablesHandler:
 
     def parse_port(self, port):
         if port == None:
-            port = "*"
-        elif port.find(":") != -1:
+            return None
+        if port.find(":") != -1:
             port = range(*list(map(lambda p: int(p), port.split(":"))))
         else:
             port = [int(port)]
@@ -93,8 +94,8 @@ class IptablesHandler:
 
     def parse_inf(self, inf):
         if inf == None:
-            inf = "*"
-        elif inf.find("!") != -1:
+            return None
+        if inf.find("!") >= 0:
             tmp = inf.split("!")[1]
             inf = interfaces()
             inf.remove(tmp)
@@ -102,68 +103,88 @@ class IptablesHandler:
             inf = [inf]
         return inf
 
-    def handle_address(self, p_addr, addr):
-        if p_addr == None:
-            return True
+    def handle_addr(self, p_addr, addr):
+        if not p_addr:
+            return False
         p_addr = ipaddress.ip_address(p_addr)
         if isinstance(addr, list):
-            is_match = False
             for item in addr:
                 if p_addr in item:
-                    is_match = True
-            if not is_match:
-                return False
+                    return True
+            return False
         elif p_addr not in addr:
             return False
         return True
 
     def handle_prot(self, p_prot, p_sport, p_dport, prot, rule):
-        if p_prot == None or prot == None:
+        if prot == None:
             return True
         if p_prot != prot:
             return False
-        port = rule.get(self.packet["prot"])
-        if port:
-            sport = self.parse_port(port.get("sport"))
-            dport = self.parse_port(port.get("dport"))
-            if p_sport != None and sport != "*":
-                if int(p_sport) not in sport:
-                    return False
-            if p_dport != None and dport != "*":
-                if int(p_dport) not in dport:
-                    return False
+        port = rule.get(p_prot)
+        if port == None:
+            return True
+        sport = self.parse_port(port.get("sport"))
+        dport = self.parse_port(port.get("dport"))
+        if sport:
+            if not p_sport:
+                return False
+            if int(p_sport) not in sport:
+                return False
+        if dport:
+            if not p_dport:
+                return False
+            if int(p_dport) not in dport:
+                return False
         return True
 
     def handle_inf(self, p_inf, inf):
-        if inf == "*":
+        if inf == None:
             return True
         if p_inf not in inf:
             return False
         return True
+    
+    def handle_mac(self, p_smac, p_dmac, mac):
+        if mac == None:
+            return True
+        smac = mac.get("mac-source")
+        dmac = mac.get("mac-destination")
+        if smac:
+            if not p_smac:
+                return False
+            if isinstance(smac, list):
+                if p_smac == smac[1]:
+                    return False
+            elif p_mac != smac:
+                return False
+        if dmac:
+            if not p_dmac:
+                return False
+            if isinstance(dmac, list):
+                if p_dmac == dmac[1]:
+                    return False
+            elif p_dmac != dmac:
+                return False
+        return True
+
 
     def handle_physdev(self, p_ininf, p_outinf, physdev):
         if physdev == None:
             return True
         phys_in = physdev.get("physdev-in")
         phys_out = physdev.get("physdev-out")
-        is_match = False
         if phys_in:
-            if p_ininf == None:
+            if not p_ininf:
                 return False
-            else:
-                if phys_in in self.get_bridges(p_ininf):
-                    is_match = True
-                else:
-                    is_match = False
+            if phys_in not in self.get_bridges(p_ininf):
+                return False
         if phys_out:
-            if p_outinf == None:
+            if not p_outinf:
                 return False
-            else:
-                if phys_out in self.get_bridges(p_outinf):
-                    is_match = True
-                else:
-                    is_match = False
-        return is_match
+            if phys_out not in self.get_bridges(p_outinf):
+                return False
+        return True
 
     def handle_mark(self, mark):
         # I will handle this later
@@ -180,30 +201,33 @@ class IptablesHandler:
         return True
 
     def match_rule(self, rule, chain, num):
-        saddr = self.parse_addr(rule.get("saddr"))
-        daddr = self.parse_addr(rule.get("daddr"))
+        saddr = self.parse_addr(rule.get("src"))
+        daddr = self.parse_addr(rule.get("dst"))
         ininf = self.parse_inf(rule.get("in-interface"))
         outinf = self.parse_inf(rule.get("out-interface"))
+        mac = rule.get("mac")
         prot = rule.get("protocol")
         target = rule.get("target")
         physdev = rule.get("physdev")
         mark = rule.get("mark")
         state = rule.get("state") or rule.get("conntrack")
 
-        if not self.handle_address(self.packet["saddr"], saddr):
+        if not self.handle_addr(self.packet["saddr"], saddr):
             return False
-        if not self.handle_address(self.packet["daddr"], daddr):
-            return False
-        if not self.handle_prot(self.packet["prot"], self.packet["sport"], self.packet["dport"], prot, rule):
+        if not self.handle_addr(self.packet["daddr"], daddr):
             return False
         if not self.handle_inf(self.packet["ininf"], ininf):
             return False
         if not self.handle_inf(self.packet["outinf"], outinf):
             return False
-        if not self.handle_physdev(self.packet["ininf"], self.packet["outinf"], physdev):
+        if not self.handle_prot(self.packet["prot"], self.packet["sport"], self.packet["dport"], prot, rule):
             return False
-        if not self.handle_mark(mark):
+        if not self.handle_mac(self.packet["smac"], self.packet["dmac"], mac):
             return False
+        #if not self.handle_physdev(self.packet["ininf"], self.packet["outinf"], physdev):
+        #    return False
+        #if not self.handle_mark(mark):
+        #    return False
         if not self.handle_state(self.packet["state"], state):
             return False
 
@@ -261,10 +285,12 @@ class IptablesHandler:
                         self.packet["saddr"] = to_src[0]
                     if len(to_src) == 2:
                         self.packet["sport"] = to_src[1]
+                    return False
                 elif target.get("REDIRECT"):
                     self.packet["dport"] = target["REDIRECT"]["to-ports"]
+                    return False
             return target
-        return False
+        return None
 
     def match_rule_in_chain(self, chain):
         table_name, chain_name = self.split_chain(chain) 
@@ -273,22 +299,21 @@ class IptablesHandler:
             return False
 
         target = self.matching(chain)
+        
+        if target == "RETURN" or target == None:
+            self.results.append(
+                {
+                    "table": table_name,
+                    "chain": chain_name,
+                    "rule": None,
+                    "target": self.get_policy(chain_name),
+                    "num": None,
+                    "state": None,
+                }
+            )
+            return False
 
-        if target:
-            return target
-
-        self.results.append(
-            {
-                "table": table_name,
-                "chain": chain_name,
-                "rule": None,
-                "target": self.get_policy(chain_name),
-                "num": None,
-                "state": None,
-            }
-        )
-
-        return False
+        return target
 
     def processing(self, chains):
         for chain in chains:

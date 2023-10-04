@@ -2,10 +2,13 @@ import os
 import uuid
 import subprocess
 import pathlib
+from netifaces import interfaces, ifaddresses, AF_INET, AF_LINK
+from nsenter import Namespace
+
 
 class IptablesNS:
     def __init__(self):
-        self.filedir = pathlib.Path(__file__).parent.resolve() / "ruleset"
+        pass
 
     def addns(self, ns):
         subprocess.check_call(["ip", "netns", "add", ns])
@@ -18,10 +21,38 @@ class IptablesNS:
     def findns(self, ns):
         return ns in os.listdir("/var/run/netns/")
 
-    def init_iptables(self, filename, ns):
-        subprocess.check_call(f"ip netns exec {ns} iptables-restore < {self.filedir}/{filename}", shell=True)
+    def init_iptables(self, filepath, ns):
+        subprocess.check_call(f"ip netns exec {ns} iptables-restore < {filepath}", shell=True)
         return True
 
     def get_iptables(self, ns):
         output = subprocess.check_output(f"ip netns exec {ns} iptables-save", shell=True)
         return output
+
+    def init_interfaces(self, infs, ns):
+        for inf in infs:
+            steps = [
+                f"ip netns exec {ns} ip link add {inf['name']} address {inf['mac']} type {inf['type']}",
+                f"ip netns exec {ns} ip addr add {inf['addr']} dev {inf['name']}"
+            ]
+            for step in steps:
+                subprocess.check_call(step, shell=True)
+        return True
+
+    def get_interfaces(self, ns):
+        with Namespace(f"/var/run/netns/{ns}", "net"):
+            ifaces = []
+            for ifname in interfaces():
+                ifaddrs = ifaddresses(ifname)
+                addr = None
+                mac = None
+                if ifaddrs.get(AF_INET):
+                    addr = ifaddresses(ifname)[AF_INET][0]["addr"]
+                    #netmask = ifaddresses(ifname)[AF_INET][0]["netmask"]
+                    #prefix = sum(bin(int(x)).count('1') for x in netmask.split('.'))
+                    #addr += f"/{prefix}"
+                if ifaddrs.get(AF_LINK):
+                    mac = ifaddresses(ifname)[AF_LINK][0]["addr"]
+                ifaces.append({"ifname": ifname, "addr": addr, "mac": mac})
+            return ifaces
+
