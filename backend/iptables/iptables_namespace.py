@@ -23,6 +23,7 @@ class IptablesNS:
 
     def init_iptables(self, filepath, ns):
         subprocess.check_call(f"ip netns exec {ns} iptables-restore < {filepath}", shell=True)
+        subprocess.check_call(f"ip netns exec {ns} ip link add br0 type bridge", shell=True)
         return True
 
     def get_iptables(self, ns):
@@ -31,12 +32,12 @@ class IptablesNS:
 
     def init_interfaces(self, infs, ns):
         for inf in infs:
-            steps = [
-                f"ip netns exec {ns} ip link add {inf['name']} address {inf['mac']} type {inf['type']}",
-                f"ip netns exec {ns} ip addr add {inf['addr']} dev {inf['name']}"
-            ]
-            for step in steps:
-                subprocess.check_call(step, shell=True)
+            subprocess.check_call(f"ip netns exec {ns} ip link add {inf['name']} address {inf['mac']} type dummy", shell=True)
+            if inf["addr"]:
+                subprocess.check_call(f"ip netns exec {ns} ip addr add {inf['addr']} dev {inf['name']}", shell=True)
+            if inf["type"] == "bridge_slave":
+                subprocess.check_call(f"ip netns exec {ns} ip link set dev {inf['name']} master br0", shell=True)
+
         return True
 
     def get_interfaces(self, ns):
@@ -48,9 +49,6 @@ class IptablesNS:
                 mac = None
                 if ifaddrs.get(AF_INET):
                     addr = ifaddresses(ifname)[AF_INET][0]["addr"]
-                    #netmask = ifaddresses(ifname)[AF_INET][0]["netmask"]
-                    #prefix = sum(bin(int(x)).count('1') for x in netmask.split('.'))
-                    #addr += f"/{prefix}"
                 if ifaddrs.get(AF_LINK):
                     mac = ifaddresses(ifname)[AF_LINK][0]["addr"]
                 ifaces.append({"ifname": ifname, "addr": addr, "mac": mac})

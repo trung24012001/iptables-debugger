@@ -4,11 +4,12 @@ import os
 import uuid
 import subprocess
 from netifaces import ifaddresses, interfaces, AF_INET
-from nsenter import Namespace
 
 
 class IptablesHandler:
-    def __init__(self):
+    def __init__(self, netns):
+        self.netns = netns
+        self.bridges = self.get_bridges()
         self.addrinf = self.get_addrinf()
         self.tables = self.init_tables()
         self.packet = {}
@@ -22,12 +23,8 @@ class IptablesHandler:
 
     def init_chains(self):
         chains = ["RAW_PREROUTING", "MANGLE_PREROUTING", "NAT_PREROUTING", "ROUTING"]
-        #if self.addrinf.get(self.packet["saddr"]):
         if self.packet["outinf"]:
             chains = ["RAW_OUTPUT", "MANGLE_OUTPUT", "NAT_OUTPUT", "FILTER_OUTPUT", "MANGLE_POSTROUTING", "NAT_POSTROUTING"]
-            #self.packet["outinf"] = self.addrinf[self.packet["saddr"]]
-        #elif self.addrinf.get(self.packet["daddr"]):
-        #    self.packet["ininf"] = self.addrinf[self.packet["daddr"]]
         return chains
 
     def init_tables(self):
@@ -57,10 +54,11 @@ class IptablesHandler:
                     addrinf[addr] = ifaceName
         return addrinf
 
-    def get_bridges(self, inf):
+    def get_bridges(self):
         try:
-            path = "/sys/class/net/{}/brif/".format(inf)
-            return os.listdir(path)
+            path = "/sys/class/net/br0/brif"
+            out = subprocess.check_output(["ip", "netns", "exec", self.netns, "ls", path], encoding='utf-8')
+            return out.split("\n")[:-1]
         except:
             return []
 
@@ -120,7 +118,6 @@ class IptablesHandler:
         return True
 
     def handle_prot(self, p_prot, p_sport, p_dport, prot, rule):
-        print(p_dport, prot, rule)
         if prot == None:
             return True
         if p_prot != prot:
@@ -181,12 +178,12 @@ class IptablesHandler:
         if phys_in:
             if not p_ininf:
                 return False
-            if phys_in not in self.get_bridges(p_ininf):
+            if phys_in not in self.bridges:
                 return False
         if phys_out:
             if not p_outinf:
                 return False
-            if phys_out not in self.get_bridges(p_outinf):
+            if phys_out not in self.bridges:
                 return False
         return True
 
@@ -256,11 +253,11 @@ class IptablesHandler:
             output = subprocess.check_output(["iptables", "-S", chain])
             output = output.decode("utf-8")
             return output.split("\n")[0].split(" ")[2]
-        return ""
+        return "RETURN"
 
     def split_chain(self, chain):
         table_name = chain.split("_")[0]
-        chain_name = chain.split("_")[1]
+        chain_name = "_".join(chain.split("_")[1:])
         return (table_name, chain_name)
 
     def matching(self, chain):
@@ -289,6 +286,11 @@ class IptablesHandler:
                         self.packet["sport"] = to_src[1]
                 elif target.get("REDIRECT"):
                     self.packet["dport"] = target["REDIRECT"]["to-ports"]
+                elif target.get("goto"):
+                    user_chain = f"{table_name}_{target['goto']}"
+                    target = self.match_rule_in_chain(user_chain)
+                    if target == "RETURN" or target == False:
+                        continue
             return target
         return None
 
@@ -321,6 +323,6 @@ class IptablesHandler:
                 new_chains = self.set_chains()
                 return self.processing(new_chains)
             target = self.match_rule_in_chain(chain)
-            if target in ["ACCEPT", "DROP", "REJECT"]:
+            if target in ["DROP", "REJECT", "QUEUE"]:
                 return True
-        return False
+        return True

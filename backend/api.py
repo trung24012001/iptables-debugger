@@ -46,7 +46,7 @@ async def create_iptables(filedata: UploadFile = Form(), interfaces: str = Form(
     except Exception as e:
         iptablesns.delns(netns)
         raise HTTPException(
-            status_cod=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Could not create interfaces: {e}",
         )
 
@@ -55,7 +55,7 @@ async def create_iptables(filedata: UploadFile = Form(), interfaces: str = Form(
     }
 
 
-@router.get("/{namespace}", response_model=list)
+@router.get("/{namespace}", response_model=dict)
 async def get_namespace_data(namespace: str):
     is_ns = iptablesns.findns(namespace)
     if not is_ns:
@@ -63,8 +63,12 @@ async def get_namespace_data(namespace: str):
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Namespace not found"
         )
+    ruleset = iptablesns.get_iptables(namespace)
     interfaces = iptablesns.get_interfaces(namespace)
-    return interfaces
+    return {
+        "ruleset": ruleset,
+        "interfaces": interfaces
+    }
 
 
 @router.post("/{namespace}/ipset", response_model=bool)
@@ -87,6 +91,6 @@ async def create_import_packet(namespace: str, packet: dict):
             detail="Namespace not found"
         )
     with Namespace(f"/var/run/netns/{namespace}", "net"):
-        iptables = IptablesHandler()
+        iptables = IptablesHandler(namespace)
         results = iptables.import_packet(packet)
     return results
