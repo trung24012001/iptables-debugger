@@ -34,11 +34,9 @@ const formatRules = () => {
 
     if (isHighlight) {
       newRow = `<div class="table-active">${row}</div>`;
-      if (ruleVis.value.num && ruleVis.value.num === ruleNum) {
-        console.log(ruleVis.value.num, ruleNum);
+      if (ruleVis.value.num && ruleVis.value.num === ruleNum)
         newRow = `<div class="table-active rule-active">${row}</div>`;
-      }
-      if (
+      else if (
         ruleVis.value.num === null &&
         row.includes(`:${ruleVis.value.chain} `)
       )
@@ -87,20 +85,20 @@ watch(
 <template>
   <div class="iptables-table">
     <template v-for="row in formatedRules" :key="row.id">
-      <a-row :gutter="[8, 8]" v-if="getTable(row.html) || !row.collapse">
-        <a-col :span="3" class="number-editor">
-          {{ row.id }}
-          <span
-            :class="{
+      <a-row class="row-editor" :wrap="false" :gutter="[8, 8]" v-if="getTable(row.html) || !row.collapse">
+        <a-col flex="none" style="background-color: #eee;">
+          <div class="number-editor" :style="{
+            width: `${formatedRules.length.toString().length * 17}px`
+          }">
+            {{ row.id }}
+            <span :class="{
               'ace-editor': true,
               'ace-editor-open': !row.collapse,
               'ace-editor-close': row.collapse,
-            }"
-            @click="handleCollapse(row)"
-            v-if="getTable(row.html)"
-          ></span>
+            }" @click="handleCollapse(row)" v-if="getTable(row.html)"></span>
+          </div>
         </a-col>
-        <a-col :span="21" v-html="row.html" class="row-editor"></a-col>
+        <a-col flex="auto" v-html="row.html"></a-col>
       </a-row>
     </template>
   </div>
@@ -111,6 +109,7 @@ watch(
   height: 600px;
   overflow: scroll;
 }
+
 .table-active {
   color: blue;
   background-color: #eee;
@@ -122,10 +121,10 @@ watch(
 }
 
 .number-editor {
-  background-color: #eee;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  text-align: right;
+  padding-right: 15px;
+  padding-left: 5px;
+  position: relative;
 }
 
 .row-editor {
@@ -135,9 +134,9 @@ watch(
 .ace-editor {
   display: inline-block;
   position: absolute;
-  right: 5%;
+  right: -3%;
   width: 11px;
-  height: 80%;
+  height: 100%;
   cursor: pointer;
   background-repeat: no-repeat;
   background-position: center;
