@@ -6,6 +6,7 @@ import "vis-network/dist/dist/vis-network.min.css";
 const props = defineProps({
   data: Array,
 });
+const emits = defineEmits(["onClick"]);
 const { data: dataVisualize } = toRefs(props);
 
 const tables = {
@@ -48,19 +49,25 @@ const htmlTitle = (html) => {
 let level = 0;
 
 const initNetwork = () => {
-  const edgesData = dataVisualize.value.map((_, idx) => ({ from: idx, to: idx + 1, arrows: "to" }));
-  const nodesData = dataVisualize.value.reduce((acc, curVal, idx) => {
+  const edgesData = dataVisualize.value.map((_, idx) => ({
+    from: idx,
+    to: idx + 1,
+    arrows: "to",
+  }));
+  const nodesData = dataVisualize.value.map((node, idx) => {
     if (idx % 4 === 3) level += 1;
-    acc.push({
+    return {
       id: idx,
-      label: `${curVal.table}\n${curVal.chain}`,
-      title: htmlTitle(`<div>${curVal.rule ? JSON.stringify(curVal.rule) : curVal.target}</div>`),
+      num: node.num,
+      label: `${node.table}\n${node.chain}`,
+      title: htmlTitle(
+        `<div>${node.rule ? JSON.stringify(node.rule) : node.target}</div>`
+      ),
       shape: "box",
       level: level,
-      color: tables[curVal.table].color,
-    });
-    return acc;
-  }, []);
+      color: tables[node.table].color,
+    };
+  });
 
   const nodes = new vis.DataSet(nodesData);
   const edges = new vis.DataSet(edgesData);
@@ -94,21 +101,20 @@ const initNetwork = () => {
     },
   };
   const network = new vis.Network(container, data, options);
-  network.moveTo({
-    position: { x: 0, y: 0 },
-    offset: { x: -600 / 2, y: -600 / 2 },
-    scale: 1,
+
+  network.on("click", (properties) => {
+    const ids = properties.nodes;
+    emits("onClick", nodes.get(ids));
   });
-}
+};
 
 onMounted(() => {
-  initNetwork()
+  initNetwork();
 });
 
 watch(dataVisualize, () => {
-  initNetwork()
-})
-
+  initNetwork();
+});
 </script>
 
 <template>

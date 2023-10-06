@@ -1,9 +1,9 @@
 <script setup>
-import { onMounted, ref } from "vue";
+import { onMounted, reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { api, API_URL } from "@/services/api";
 import { useErrorHandling } from "@/services/errorHandling";
-import IptablesTable from "@/components/IptablesTable.vue";
+import IptablesData from "@/components/IptablesData.vue";
 import IptablesVisualize from "@/components/IptablesVisualize.vue";
 import PacketForm from "@/components/PacketForm.vue";
 
@@ -13,6 +13,7 @@ const { netns } = route.params;
 const { getErrorResponse } = useErrorHandling();
 const visualizeData = ref();
 const interfaces = ref([]);
+const ruleset = ref();
 
 const onVisualize = (rules) => {
   visualizeData.value = rules;
@@ -21,33 +22,60 @@ const onVisualize = (rules) => {
 const getNetns = async () => {
   try {
     const res = await api.get(`${API_URL}/${netns}`).json();
-    interfaces.value = res;
+    interfaces.value = res.interfaces;
+    ruleset.value = res.ruleset;
   } catch (error) {
     getErrorResponse(error);
     router.push({ name: "NotFoundPage" });
   }
 };
 
+const ruleVis = reactive({
+  table: null,
+  chain: null,
+  num: null,
+});
+
+const onVisClick = (nodes) => {
+  ruleVis.table = null;
+  ruleVis.chain = null;
+
+  if (!nodes.length) return;
+
+  const labels = nodes[0].label.split("\n");
+  ruleVis.table = labels[0].toLowerCase();
+  ruleVis.chain = labels[1];
+  ruleVis.num = nodes[0].num;
+};
+
 onMounted(async () => {
   await getNetns();
-})
+});
 await getNetns();
 </script>
 
 <template>
   <div class="packet-page">
-    <a-space direction="vertical" size="large">
-      <PacketForm :netns="netns" :interfaces="interfaces" :on-visualize="onVisualize" />
-      <div v-if="visualizeData">
-        <IptablesVisualize :data="visualizeData" />
-        <IptablesTable :data="visualizeData" />
-      </div>
+    <a-space direction="vertical" size="large" style="width: 100%">
+      <PacketForm
+        :netns="netns"
+        :interfaces="interfaces"
+        :on-visualize="onVisualize"
+      />
+      <a-row v-if="visualizeData" :gutter="[16, 8]">
+        <a-col :span="16">
+          <IptablesVisualize :data="visualizeData" @on-click="onVisClick"
+        /></a-col>
+        <a-col :span="8">
+          <IptablesData :ruleVis="ruleVis" :rules="ruleset"
+        /></a-col>
+      </a-row>
     </a-space>
   </div>
 </template>
 
 <style scoped>
 .packet-page {
-  margin: 30px 60px;
+  margin-top: 30px;
 }
 </style>
