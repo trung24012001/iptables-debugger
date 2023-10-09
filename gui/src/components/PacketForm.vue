@@ -31,8 +31,6 @@ const formState = reactive({
 const btnState = reactive({
   flow: false,
   mac: false,
-  bridge: false,
-  ipset: false,
   mark: false,
 });
 
@@ -162,8 +160,6 @@ const handleBtnClick = (item) => {
     case "mac":
       resetMac();
       break;
-    case "ipset":
-      break;
     case "mark":
       formState.mark = null;
       break;
@@ -178,7 +174,6 @@ const handleBtnClick = (item) => {
       <a-space-compact>
         <a-button :type="btnState.flow ? 'primary' : 'default'" @click="handleBtnClick('flow')">Flow</a-button>
         <a-button :type="btnState.mac ? 'primary' : 'default'" @click="handleBtnClick('mac')">Mac</a-button>
-        <a-button :type="btnState.ipset ? 'primary' : 'default'" @click="handleBtnClick('ipset')">IPSet</a-button>
         <a-button :type="btnState.mark ? 'primary' : 'default'" @click="handleBtnClick('mark')">Mark</a-button>
       </a-space-compact>
     </a-space>

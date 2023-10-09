@@ -55,6 +55,7 @@ const formatRules = () => {
       collapse: isCollapse,
     };
   });
+
 };
 
 const getTable = (text) => {
@@ -65,6 +66,7 @@ const getTable = (text) => {
 
 const handleCollapse = (item) => {
   let table = getTable(item.html);
+  console.log(table)
   if (!table) return;
   collapsedTables[table] = !collapsedTables[table];
 };
@@ -134,6 +136,7 @@ watch(
 .ace-editor {
   display: inline-block;
   position: absolute;
+  top: 0;
   right: -3%;
   width: 11px;
   height: 100%;

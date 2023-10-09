@@ -6,6 +6,8 @@ import { useErrorHandling } from "@/services/errorHandling";
 import IptablesData from "@/components/IptablesData.vue";
 import IptablesVisualize from "@/components/IptablesVisualize.vue";
 import PacketForm from "@/components/PacketForm.vue";
+import IfaceList from "@/components/IfaceList.vue";
+import IpsetList from "@/components/IpsetList.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -13,7 +15,7 @@ const { netns } = route.params;
 const { getErrorResponse } = useErrorHandling();
 const visualizeData = ref();
 const interfaces = ref([]);
-const ruleset = ref();
+const rules = ref();
 
 const onVisualize = (rules) => {
   visualizeData.value = rules;
@@ -23,7 +25,7 @@ const getNetns = async () => {
   try {
     const res = await api.get(`${API_URL}/${netns}`).json();
     interfaces.value = res.interfaces;
-    ruleset.value = res.ruleset;
+    rules.value = res.rules;
   } catch (error) {
     getErrorResponse(error);
     router.push({ name: "NotFoundPage" });
@@ -57,18 +59,16 @@ await getNetns();
 <template>
   <div class="packet-page">
     <a-space direction="vertical" size="large" style="width: 100%">
-      <PacketForm
-        :netns="netns"
-        :interfaces="interfaces"
-        :on-visualize="onVisualize"
-      />
+      <IfaceList :interfaces="interfaces" :netns="netns" />
+      <IpsetList :netns="netns" />
+      <PacketForm :netns="netns" :interfaces="interfaces" :on-visualize="onVisualize" />
       <a-row v-if="visualizeData" :gutter="[16, 8]">
         <a-col :span="16">
-          <IptablesVisualize :data="visualizeData" @on-click="onVisClick"
-        /></a-col>
+          <IptablesVisualize :data="visualizeData" @on-click="onVisClick" />
+        </a-col>
         <a-col :span="8">
-          <IptablesData :ruleVis="ruleVis" :rules="ruleset"
-        /></a-col>
+          <IptablesData :ruleVis="ruleVis" :rules="rules" />
+        </a-col>
       </a-row>
     </a-space>
   </div>

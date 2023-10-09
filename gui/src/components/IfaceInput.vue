@@ -50,7 +50,7 @@ watch(
 </script>
 
 <template>
-  <div class="ether-input">
+  <div class="iface-input">
     <a-typography-title :level="3">Interfaces</a-typography-title>
     <a-space direction="vertical" style="width: 100%">
       <div class="group-input" v-for="(item, idx) in inputs" :key="item.id">
