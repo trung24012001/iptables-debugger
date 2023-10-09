@@ -29,13 +29,14 @@ const formState = reactive({
 });
 
 const btnState = reactive({
+  flow: false,
   mac: false,
   bridge: false,
   ipset: false,
   mark: false,
 });
 
-const flowState = ref("in");
+const flowState = ref();
 const ifaceState = ref();
 
 const prots = ref([
@@ -102,55 +103,70 @@ const onFinish = async () => {
     onVisualize.value(res);
     message.success("Packet sent");
   } catch (error) {
-    console.log(error);
     getErrorResponse(error);
   } finally {
     sending.value = false;
   }
 };
 
-const onIfaceChange = () => {
+const resetFlow = () => {
   formState.ininf = null;
   formState.outinf = null;
-  formState.smac = null;
-  formState.dmac = null;
   formState.saddr = null;
   formState.daddr = null;
 
-  const iface = interfaces.value.find(
-    (item) => item.ifname === ifaceState.value
-  );
+  const iface = getCurIface();
+  if (!iface) return;
+
   if (flowState.value === "in") {
     formState.ininf = iface.ifname;
     formState.daddr = iface.addr;
-    if (btnState["mac"]) formState.dmac = iface.mac;
-  } else {
+  }
+  else if (flowState.value === "out") {
     formState.outinf = iface.ifname;
     formState.saddr = iface.addr;
-    if (btnState["mac"]) formState.smac = iface.mac;
   }
+}
+
+const resetMac = () => {
+  formState.smac = null;
+  formState.dmac = null;
+
+  if (!btnState.mac) return;
+
+  const iface = getCurIface();
+  if (!iface) return;
+
+  if (flowState.value === "in") formState.dmac = iface.mac;
+  else if (flowState.value === "out") formState.smac = iface.mac;
+}
+
+const getCurIface = () => {
+  return interfaces.value.find(
+    (item) => item.ifname === ifaceState.value
+  );
+}
+
+const onFlowChange = () => {
+  resetFlow();
+  resetMac();
 };
 
 const handleBtnClick = (item) => {
   btnState[item] = !btnState[item];
   switch (item) {
+    case "flow":
+      flowState.value = btnState[item] && "in";
+      resetFlow();
+      break;
     case "mac":
-      formState.smac = null;
-      formState.dmac = null;
+      resetMac();
       break;
     case "ipset":
       break;
     case "mark":
       formState.mark = null;
       break;
-  }
-
-  const iface = interfaces.value.find(
-    (item) => item.ifname === ifaceState.value
-  );
-  if (item === "mac" && btnState[item]) {
-    if (flowState.value === "in") formState.dmac = iface.mac;
-    else formState.smac = iface.mac;
   }
 };
 </script>
@@ -160,57 +176,26 @@ const handleBtnClick = (item) => {
     <a-typography-title :level="3">Packet Simulator</a-typography-title>
     <a-space style="margin-bottom: 15px">
       <a-space-compact>
-        <a-button
-          :type="btnState.mac ? 'primary' : 'default'"
-          @click="handleBtnClick('mac')"
-          >Mac</a-button
-        >
-        <a-button
-          :type="btnState.ipset ? 'primary' : 'default'"
-          @click="handleBtnClick('ipset')"
-          >IPSet</a-button
-        >
-        <a-button
-          :type="btnState.mark ? 'primary' : 'default'"
-          @click="handleBtnClick('mark')"
-          >Mark</a-button
-        >
+        <a-button :type="btnState.flow ? 'primary' : 'default'" @click="handleBtnClick('flow')">Flow</a-button>
+        <a-button :type="btnState.mac ? 'primary' : 'default'" @click="handleBtnClick('mac')">Mac</a-button>
+        <a-button :type="btnState.ipset ? 'primary' : 'default'" @click="handleBtnClick('ipset')">IPSet</a-button>
+        <a-button :type="btnState.mark ? 'primary' : 'default'" @click="handleBtnClick('mark')">Mark</a-button>
       </a-space-compact>
     </a-space>
     <a-form layout="inline" :model="formState" @finish="onFinish">
-      <a-form-item>
-        <a-select
-          style="width: 80px"
-          placeholder="Flow"
-          @change="onIfaceChange"
-          v-model:value="flowState"
-          :options="flows"
-        />
+      <a-form-item v-if="btnState.flow">
+        <a-select style="width: 80px" placeholder="Flow" @change="onFlowChange" v-model:value="flowState"
+          :options="flows" />
+      </a-form-item>
+      <a-form-item v-if="btnState.flow">
+        <a-select style="width: 120px" placeholder="Ether" @change="onFlowChange" v-model:value="ifaceState"
+          :options="ethers" />
       </a-form-item>
       <a-form-item>
-        <a-select
-          style="width: 120px"
-          placeholder="Ether"
-          @change="onIfaceChange"
-          v-model:value="ifaceState"
-          :options="ethers"
-        />
+        <a-select style="width: 120px" placeholder="State" v-model:value="formState.state" :options="states"></a-select>
       </a-form-item>
       <a-form-item>
-        <a-select
-          style="width: 120px"
-          placeholder="State"
-          v-model:value="formState.state"
-          :options="states"
-        ></a-select>
-      </a-form-item>
-      <a-form-item>
-        <a-select
-          style="width: 120px"
-          placeholder="Protocol"
-          v-model:value="formState.prot"
-          :options="prots"
-        ></a-select>
+        <a-select style="width: 120px" placeholder="Protocol" v-model:value="formState.prot" :options="prots"></a-select>
       </a-form-item>
       <a-form-item v-if="btnState.mac">
         <a-input v-model:value="formState.smac" placeholder="Source MAC" />
@@ -222,31 +207,19 @@ const handleBtnClick = (item) => {
         <a-input v-model:value="formState.saddr" placeholder="Source Address" />
       </a-form-item>
       <a-form-item>
-        <a-input
-          v-model:value="formState.daddr"
-          placeholder="Destination Address"
-        />
+        <a-input v-model:value="formState.daddr" placeholder="Destination Address" />
       </a-form-item>
       <a-form-item v-if="portEnable">
         <a-input v-model:value="formState.sport" placeholder="Soure Port" />
       </a-form-item>
       <a-form-item v-if="portEnable">
-        <a-input
-          v-model:value="formState.dport"
-          placeholder="Destination Port"
-        />
+        <a-input v-model:value="formState.dport" placeholder="Destination Port" />
       </a-form-item>
       <a-form-item v-if="btnState.mark">
-        <a-input
-          style="width: 120px"
-          v-model:value="formState.mark"
-          placeholder="Mark"
-        />
+        <a-input style="width: 120px" v-model:value="formState.mark" placeholder="Mark" />
       </a-form-item>
       <a-form-item>
-        <a-button type="primary" html-type="submit" :loading="sending"
-          >Send</a-button
-        >
+        <a-button type="primary" html-type="submit" :loading="sending">Send</a-button>
       </a-form-item>
     </a-form>
   </div>

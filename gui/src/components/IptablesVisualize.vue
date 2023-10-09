@@ -118,10 +118,52 @@ watch(dataVisualize, () => {
 </script>
 
 <template>
-  <div id="mynetwork"></div>
+  <div class="iptables-visualize">
+    <a-space class="legend" direction="vertical">
+      <div>
+        <span class="legend-label" :style="{
+          'background-color': tables.RAW.color.background
+        }"></span>
+        RAW
+      </div>
+      <div>
+        <span class="legend-label" :style="{
+          'background-color': tables.NAT.color.background
+        }"></span>
+        NAT
+      </div>
+      <div>
+        <span class="legend-label" :style="{
+          'background-color': tables.MANGLE.color.background
+        }"></span>
+        MANGLE
+      </div>
+      <div>
+        <span class="legend-label" :style="{
+          'background-color': tables.FILTER.color.background
+        }"></span>
+        FILTER
+      </div>
+    </a-space>
+    <div id="mynetwork"></div>
+  </div>
 </template>
 
 <style scoped>
+.legend {
+  top: 3%;
+  left: 3%;
+  position: absolute;
+}
+
+.legend-label {
+  content: "";
+  display: inline-block;
+  width: 15px;
+  height: 15px;
+  border: 1px solid #000;
+}
+
 #mynetwork {
   border: 1px solid #000;
 }
