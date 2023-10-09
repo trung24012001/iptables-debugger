@@ -1,59 +1,49 @@
 from fastapi import APIRouter, Form, HTTPException, status, UploadFile
+from fastapi.responses import PlainTextResponse
 from iptables.iptables_namespace import IptablesNS
 from iptables.iptables_handler import IptablesHandler
 from nsenter import Namespace
+from jinja2 import Environment, FileSystemLoader
 import pathlib
 import aiofiles
 import uuid
 import os
 import json
+import re
 
 
 router = APIRouter()
 iptablesns = IptablesNS()
-FILE_DIR = pathlib.Path(__file__).parent.resolve() / "iptables" / "ruleset"
+filedir = pathlib.Path(__file__).parent.resolve() / "iptables"
+template_env = Environment(loader=FileSystemLoader(f"{filedir}/scripts"))
+url = "http://10.100.10.182:8000/api"
+result_url = "http://127.0.0.1:3000"
 
 
-@router.get("/", response_model=dict)
-def test():
-    return {
-        "env_id": "Hello World"
-    }
+@router.get("/setup", response_model=str)
+def get_setup():
+    template = template_env.get_template("all-in-one.sh")
+    content = template.render(url=url, result_url=result_url)
+    return PlainTextResponse(content)
 
-@router.post("/iptables", response_model=dict)
-async def create_iptables(filedata: UploadFile = Form(), interfaces: str = Form()):
+@router.post("/iptables", response_model=str)
+async def create_iptables(rules: str = Form()):
     netns = str(uuid.uuid4())[:8]
-    filepath = f"{FILE_DIR}/{netns}.iptables"
-    
-    async with aiofiles.open(filepath, "wb") as out_file:
-        while content := await filedata.read(1024):
-            await out_file.write(content)
+
+    filepath = filedir / "ruleset" / f"{netns}.iptables"
+    with open(filepath, "w") as f:
+        f.write(rules)
     try:
         iptablesns.addns(netns)
-        iptablesns.init_iptables(filepath, netns)
+        iptablesns.init_iptables(rules, netns)
     except Exception as e:
         iptablesns.delns(netns)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Could not create iptables ruleset: {e}",
         )
-    finally:
-        os.remove(filepath)
 
-    try:
-        infs = json.loads(interfaces)
-        iptablesns.init_interfaces(infs, netns)
-    except Exception as e:
-        iptablesns.delns(netns)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Could not create interfaces: {e}",
-        )
-
-    return {
-        "netns": netns
-    }
-
+    return PlainTextResponse(netns)
 
 @router.get("/{namespace}", response_model=dict)
 async def get_namespace_data(namespace: str):
@@ -63,22 +53,77 @@ async def get_namespace_data(namespace: str):
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Namespace not found"
         )
-    ruleset = iptablesns.get_iptables(namespace)
+    rules = iptablesns.get_iptables(namespace)
     interfaces = iptablesns.get_interfaces(namespace)
     return {
-        "ruleset": ruleset,
+        "rules": rules,
         "interfaces": interfaces
     }
 
-
-@router.post("/{namespace}/ipset", response_model=bool)
-async def create_ipset(namespace: str):
+@router.get("/{namespace}/interfaces", response_model=str)
+async def get_interfaces_script(namespace: str):
     is_ns = iptablesns.findns(namespace)
     if not is_ns:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Namespace not found"
         )
+    template = template_env.get_template("interfaces.sh")
+    content = template.render(url=url, netns=namespace)
+    return PlainTextResponse(content)
+
+@router.post("/{namespace}/interfaces", response_model=bool)
+async def create_interfaces(namespace: str, interfaces: str = Form()):
+    is_ns = iptablesns.findns(namespace)
+    if not is_ns:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Namespace not found"
+        )
+    try:
+        iptablesns.init_interfaces(json.loads(interfaces), namespace)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Could not create interfaces: {e}",
+        )
+    return True
+
+@router.get("/{namespace}/ipset", response_model=str)
+async def get_ipset_script(namespace: str):
+    is_ns = iptablesns.findns(namespace)
+    if not is_ns:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Namespace not found"
+        )
+    template = template_env.get_template("ipset.sh")
+    content = template.render(url=url, netns=namespace)
+    return PlainTextResponse(content)
+
+@router.post("/{namespace}/ipset", response_model=bool)
+async def create_ipset(namespace: str, ipset: str = Form()):
+    is_ns = iptablesns.findns(namespace)
+    if not is_ns:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Namespace not found"
+        )
+
+    filepath = filedir / "ruleset" / f"{namespace}.ipset"
+    async with aiofiles.open(filepath, "w") as f:
+        await f.write(ipset)
+
+    try:
+        iptablesns.init_ipset(filepath, namespace)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Could not import ipset: {e}",
+        )
+    finally:
+        os.remove(filepath)
+
     return True
 
 

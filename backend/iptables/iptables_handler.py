@@ -9,7 +9,6 @@ from netifaces import ifaddresses, interfaces, AF_INET
 class IptablesHandler:
     def __init__(self, netns):
         self.netns = netns
-        self.bridges = self.get_bridges()
         self.addrinf = self.get_addrinf()
         self.tables = self.init_tables()
         self.packet = {}
@@ -25,6 +24,14 @@ class IptablesHandler:
         chains = ["RAW_PREROUTING", "MANGLE_PREROUTING", "NAT_PREROUTING", "ROUTING"]
         if self.packet["outinf"]:
             chains = ["RAW_OUTPUT", "MANGLE_OUTPUT", "NAT_OUTPUT", "FILTER_OUTPUT", "MANGLE_POSTROUTING", "NAT_POSTROUTING"]
+        elif self.packet["ininf"]:
+            pass
+        else:
+            if self.addrinf.get(self.packet["saddr"]):
+                chains = ["RAW_OUTPUT", "MANGLE_OUTPUT", "NAT_OUTPUT", "FILTER_OUTPUT", "MANGLE_POSTROUTING", "NAT_POSTROUTING"]
+                self.packet["outinf"] = self.addrinf[self.packet["saddr"]]
+            elif self.addrinf.get(self.packet["daddr"]):
+                self.packet["ininf"] = self.addrinf[self.packet["daddr"]]
         return chains
 
     def init_tables(self):
@@ -54,9 +61,9 @@ class IptablesHandler:
                     addrinf[addr] = ifaceName
         return addrinf
 
-    def get_bridges(self):
+    def get_bridges(self, inf):
         try:
-            path = "/sys/class/net/br0/brif"
+            path = f"/sys/class/net/{{inf}}/master/brif/"
             out = subprocess.check_output(["ip", "netns", "exec", self.netns, "ls", path], encoding='utf-8')
             return out.split("\n")[:-1]
         except:
@@ -178,12 +185,12 @@ class IptablesHandler:
         if phys_in:
             if not p_ininf:
                 return False
-            if phys_in not in self.bridges:
+            if phys_in not in self.get_bridges(phys_in):
                 return False
         if phys_out:
             if not p_outinf:
                 return False
-            if phys_out not in self.bridges:
+            if phys_out not in self.get_bridges(phys_out):
                 return False
         return True
 

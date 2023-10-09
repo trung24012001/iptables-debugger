@@ -22,23 +22,47 @@ class IptablesNS:
         return ns in os.listdir("/var/run/netns/")
 
     def init_iptables(self, filepath, ns):
-        subprocess.check_call(f"ip netns exec {ns} iptables-restore < {filepath}", shell=True)
-        subprocess.check_call(f"ip netns exec {ns} ip link add br0 type bridge", shell=True)
+        subprocess.check_call(f"ip netns exec {ns} sed $'s/[^[:print:]\t]//g' {filepath} > iptables-restore", shell=True)
+        return True
+
+    def init_ipset(self, filepath, ns):
+        subprocess.check_call(f"sed -i $'s/[^[:print:]\t]//g' {filepath}", shell=True)
+        subprocess.check_call(f"ip netns exec {ns} ipset restore < {filepath}", shell=True)
+        return True
+
+    def init_interfaces(self, interfaces, ns):
+        for inf in interfaces:
+            ifname = inf["ifname"]
+            addr = inf["ip"]
+            mac = inf["mac"]
+            inf_type = "dummy"
+            if inf["type"] == "bridge":
+                inf_type = "bridge"
+            bridge = inf["bridge"]
+            master = inf["master"]
+
+            try:
+                command = f"ip netns exec {ns} ip link add {ifname} address {mac} type {inf_type}"
+                subprocess.check_call(command, shell=True)
+            except:
+                continue
+
+            if addr:
+                command = f"ip netns exec {ns} ip addr add {addr} dev {ifname}"
+                subprocess.check_call(command, shell=True)
+            if bridge == "bridge_slave":
+                command = f"ip netns exec {ns} ip link set dev {ifname} master {master}"
+                subprocess.check_call(command, shell=True)
+
         return True
 
     def get_iptables(self, ns):
         output = subprocess.check_output(f"ip netns exec {ns} iptables-save", shell=True)
         return output
 
-    def init_interfaces(self, infs, ns):
-        for inf in infs:
-            subprocess.check_call(f"ip netns exec {ns} ip link add {inf['name']} address {inf['mac']} type dummy", shell=True)
-            if inf["addr"]:
-                subprocess.check_call(f"ip netns exec {ns} ip addr add {inf['addr']} dev {inf['name']}", shell=True)
-            if inf["type"] == "bridge_slave":
-                subprocess.check_call(f"ip netns exec {ns} ip link set dev {inf['name']} master br0", shell=True)
-
-        return True
+    def get_ipset(self, ns):
+        output = subprocess.check_output(f"ip netns exec {ns} ipset save", shell=True)
+        return output
 
     def get_interfaces(self, ns):
         with Namespace(f"/var/run/netns/{ns}", "net"):

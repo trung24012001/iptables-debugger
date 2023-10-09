@@ -2,3 +2,4 @@ python3-iptables
 fastapi
 uvicorn[standard]
 python-multipart
+jinja2
