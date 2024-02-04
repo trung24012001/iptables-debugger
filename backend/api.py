@@ -6,6 +6,7 @@ from nsenter import Namespace
 from jinja2 import Environment, FileSystemLoader
 import pathlib
 import aiofiles
+import asyncio
 import uuid
 import os
 import json
@@ -26,13 +27,15 @@ def get_setup():
     content = template.render(url=url, result_url=result_url)
     return PlainTextResponse(content)
 
+
 @router.post("/iptables", response_model=str)
 async def create_iptables(rules: str = Form()):
     netns = str(uuid.uuid4())[:8]
 
     filepath = filedir / "ruleset" / f"{netns}.iptables"
-    with open(filepath, "w") as f:
-        f.write(rules)
+    async with aiofiles.open(filepath, "w") as f:
+        rules = rules.replace("\r\n", "\n")
+        await f.write(rules)
     try:
         iptablesns.addns(netns)
         iptablesns.init_iptables(rules, netns)
@@ -45,40 +48,37 @@ async def create_iptables(rules: str = Form()):
 
     return PlainTextResponse(netns)
 
+
 @router.get("/{namespace}", response_model=dict)
 async def get_namespace_data(namespace: str):
     is_ns = iptablesns.findns(namespace)
     if not is_ns:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Namespace not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Namespace not found"
         )
     rules = iptablesns.get_iptables(namespace)
     interfaces = iptablesns.get_interfaces(namespace)
-    return {
-        "rules": rules,
-        "interfaces": interfaces
-    }
+    return {"rules": rules, "interfaces": interfaces}
+
 
 @router.get("/{namespace}/interfaces", response_model=str)
 async def get_interfaces_script(namespace: str):
     is_ns = iptablesns.findns(namespace)
     if not is_ns:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Namespace not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Namespace not found"
         )
     template = template_env.get_template("interfaces.sh")
     content = template.render(url=url, netns=namespace)
     return PlainTextResponse(content)
+
 
 @router.post("/{namespace}/interfaces", response_model=bool)
 async def create_interfaces(namespace: str, interfaces: str = Form()):
     is_ns = iptablesns.findns(namespace)
     if not is_ns:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Namespace not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Namespace not found"
         )
     try:
         iptablesns.init_interfaces(json.loads(interfaces), namespace)
@@ -89,29 +89,30 @@ async def create_interfaces(namespace: str, interfaces: str = Form()):
         )
     return True
 
+
 @router.get("/{namespace}/ipset", response_model=str)
 async def get_ipset_script(namespace: str):
     is_ns = iptablesns.findns(namespace)
     if not is_ns:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Namespace not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Namespace not found"
         )
     template = template_env.get_template("ipset.sh")
     content = template.render(url=url, netns=namespace)
     return PlainTextResponse(content)
+
 
 @router.post("/{namespace}/ipset", response_model=bool)
 async def create_ipset(namespace: str, ipset: str = Form()):
     is_ns = iptablesns.findns(namespace)
     if not is_ns:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Namespace not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Namespace not found"
         )
 
     filepath = filedir / "ruleset" / f"{namespace}.ipset"
     async with aiofiles.open(filepath, "w") as f:
+        ipset = ipset.replace("\r\n", "\n")
         await f.write(ipset)
 
     try:
@@ -132,8 +133,7 @@ async def create_import_packet(namespace: str, packet: dict):
     is_ns = iptablesns.findns(namespace)
     if not is_ns:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Namespace not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Namespace not found"
         )
     with Namespace(f"/var/run/netns/{namespace}", "net"):
         iptables = IptablesHandler(namespace)

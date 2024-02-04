@@ -1,5 +1,5 @@
 <script setup>
-import { toRefs, computed, ref, reactive, watch } from "vue";
+import { toRefs, computed, reactive, watch } from "vue";
 
 const props = defineProps({
   ruleVis: Object,
@@ -55,7 +55,6 @@ const formatRules = () => {
       collapse: isCollapse,
     };
   });
-
 };
 
 const getTable = (text) => {
@@ -66,7 +65,7 @@ const getTable = (text) => {
 
 const handleCollapse = (item) => {
   let table = getTable(item.html);
-  console.log(table)
+  console.log(table);
   if (!table) return;
   collapsedTables[table] = !collapsedTables[table];
 };
@@ -87,17 +86,29 @@ watch(
 <template>
   <div class="iptables-table">
     <template v-for="row in formatedRules" :key="row.id">
-      <a-row class="row-editor" :wrap="false" :gutter="[8, 8]" v-if="getTable(row.html) || !row.collapse">
-        <a-col flex="none" style="background-color: #eee;">
-          <div class="number-editor" :style="{
-            width: `${formatedRules.length.toString().length * 17}px`
-          }">
+      <a-row
+        class="row-editor"
+        :wrap="false"
+        :gutter="[8, 8]"
+        v-if="getTable(row.html) || !row.collapse"
+      >
+        <a-col flex="none" style="background-color: #eee">
+          <div
+            class="number-editor"
+            :style="{
+              width: `${formatedRules.length.toString().length * 17}px`,
+            }"
+          >
             {{ row.id }}
-            <span :class="{
-              'ace-editor': true,
-              'ace-editor-open': !row.collapse,
-              'ace-editor-close': row.collapse,
-            }" @click="handleCollapse(row)" v-if="getTable(row.html)"></span>
+            <span
+              :class="{
+                'ace-editor': true,
+                'ace-editor-open': !row.collapse,
+                'ace-editor-close': row.collapse,
+              }"
+              @click="handleCollapse(row)"
+              v-if="getTable(row.html)"
+            ></span>
           </div>
         </a-col>
         <a-col flex="auto" v-html="row.html"></a-col>

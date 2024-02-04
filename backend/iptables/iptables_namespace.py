@@ -17,17 +17,21 @@ class IptablesNS:
     def delns(self, ns):
         subprocess.check_call(["ip", "netns", "delete", ns])
         return True
-    
+
     def findns(self, ns):
         return ns in os.listdir("/var/run/netns/")
 
     def init_iptables(self, filepath, ns):
-        subprocess.check_call(f"ip netns exec {ns} sed $'s/[^[:print:]\t]//g' {filepath} > iptables-restore", shell=True)
+        subprocess.check_call(
+            f"ip netns exec {ns} iptables-restore < {filepath}",
+            shell=True,
+        )
         return True
 
     def init_ipset(self, filepath, ns):
-        subprocess.check_call(f"sed -i $'s/[^[:print:]\t]//g' {filepath}", shell=True)
-        subprocess.check_call(f"ip netns exec {ns} ipset restore < {filepath}", shell=True)
+        subprocess.check_call(
+            f"ip netns exec {ns} ipset restore < {filepath}", shell=True
+        )
         return True
 
     def init_interfaces(self, interfaces, ns):
@@ -57,7 +61,9 @@ class IptablesNS:
         return True
 
     def get_iptables(self, ns):
-        output = subprocess.check_output(f"ip netns exec {ns} iptables-save", shell=True)
+        output = subprocess.check_output(
+            f"ip netns exec {ns} iptables-save", shell=True
+        )
         return output
 
     def get_ipset(self, ns):
@@ -77,4 +83,3 @@ class IptablesNS:
                     mac = ifaddresses(ifname)[AF_LINK][0]["addr"]
                 ifaces.append({"ifname": ifname, "addr": addr, "mac": mac})
             return ifaces
-
