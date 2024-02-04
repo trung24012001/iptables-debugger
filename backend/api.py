@@ -4,6 +4,7 @@ from iptables.iptables_namespace import IptablesNS
 from iptables.iptables_handler import IptablesHandler
 from nsenter import Namespace
 from jinja2 import Environment, FileSystemLoader
+from config import settings
 import pathlib
 import aiofiles
 import uuid
@@ -15,14 +16,14 @@ router = APIRouter()
 iptablesns = IptablesNS()
 filedir = pathlib.Path(__file__).parent.resolve() / "iptables"
 template_env = Environment(loader=FileSystemLoader(f"{filedir}/scripts"))
-url = "http://10.100.10.182:8000/api"
-result_url = "http://127.0.0.1:3000"
+setup_url = settings.SETUP_URL
+result_url = settings.RESULT_URL
 
 
 @router.get("/setup", response_model=str)
 def get_setup():
     template = template_env.get_template("all-in-one.sh")
-    content = template.render(url=url, result_url=result_url)
+    content = template.render(url=setup_url, result_url=result_url)
     return PlainTextResponse(content)
 
 
@@ -67,7 +68,7 @@ async def get_interfaces_script(namespace: str):
             status_code=status.HTTP_404_NOT_FOUND, detail="Namespace not found"
         )
     template = template_env.get_template("interfaces.sh")
-    content = template.render(url=url, netns=namespace)
+    content = template.render(url=setup_url, netns=namespace)
     return PlainTextResponse(content)
 
 
@@ -96,7 +97,7 @@ async def get_ipset_script(namespace: str):
             status_code=status.HTTP_404_NOT_FOUND, detail="Namespace not found"
         )
     template = template_env.get_template("ipset.sh")
-    content = template.render(url=url, netns=namespace)
+    content = template.render(url=setup_url, netns=namespace)
     return PlainTextResponse(content)
 
 
