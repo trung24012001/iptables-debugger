@@ -1,7 +1,5 @@
 import os
-import uuid
 import subprocess
-import pathlib
 from netifaces import interfaces, ifaddresses, AF_INET, AF_LINK
 from nsenter import Namespace
 

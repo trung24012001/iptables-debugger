@@ -6,11 +6,9 @@ from nsenter import Namespace
 from jinja2 import Environment, FileSystemLoader
 import pathlib
 import aiofiles
-import asyncio
 import uuid
 import os
 import json
-import re
 
 
 router = APIRouter()
@@ -38,7 +36,7 @@ async def create_iptables(rules: str = Form()):
         await f.write(rules)
     try:
         iptablesns.addns(netns)
-        iptablesns.init_iptables(rules, netns)
+        iptablesns.init_iptables(filepath, netns)
     except Exception as e:
         iptablesns.delns(netns)
         raise HTTPException(
